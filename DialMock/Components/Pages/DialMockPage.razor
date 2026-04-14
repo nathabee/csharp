@@ -1,0 +1,142 @@
+@page "/dialmock"
+@inject DialRuleEngine RuleEngine
+
+<PageTitle>Dial Mock</PageTitle>
+
+<h1>Dial Mock</h1>
+
+<div class="dialmock-page">
+    <div class="editor-card">
+        <EditForm Model="_spec" FormName="DialPreviewForm">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-grid">
+                <div class="field">
+                    <label for="title">Title</label>
+                    <InputText id="title" @bind-Value="_spec.Title" />
+                </div>
+
+                <div class="field">
+                    <label for="unit">Unit</label>
+                    <InputText id="unit" @bind-Value="_spec.Unit" />
+                </div>
+
+                <div class="field">
+                    <label for="minValue">Min value</label>
+                    <InputNumber id="minValue" @bind-Value="_spec.MinValue" />
+                </div>
+
+                <div class="field">
+                    <label for="maxValue">Max value</label>
+                    <InputNumber id="maxValue" @bind-Value="_spec.MaxValue" />
+                </div>
+
+                <div class="field">
+                    <label for="previewValue">Preview value</label>
+                    <InputNumber id="previewValue" @bind-Value="_spec.PreviewValue" />
+                </div>
+
+                <div class="field">
+                    <label for="majorTickCount">Major ticks</label>
+                    <InputNumber id="majorTickCount" @bind-Value="_spec.MajorTickCount" />
+                </div>
+            </div>
+
+            <div class="actions">
+                <button type="button" @onclick="HandlePreview">Render preview</button>
+            </div>
+        </EditForm>
+
+        @if (_validation is not null && !_validation.IsValid)
+        {
+            <div class="validation-errors">
+                <strong>Validation errors</strong>
+                <ul>
+                    @foreach (var error in _validation.Errors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+
+    @if (_renderData is not null)
+    {
+        <div class="preview-card">
+            <svg viewBox="0 0 400 260" class="dial-preview" role="img" aria-label="Dial preview">
+                <path d="M 40 200 A 160 160 0 0 1 360 200" class="dial-arc" />
+
+                @for (var i = 0; i <= _renderData.MajorTickCount; i++)
+                { 
+                    var angle = -160 + (140.0 / _renderData.MajorTickCount) * i;
+                    var tickOuter = Polar(200, 200, 142, angle);
+                    var tickInner = Polar(200, 200, 126, angle);
+                    var labelPos = Polar(200, 200, 108, angle);
+
+                    var value = _renderData.MinValue +
+                        ((_renderData.MaxValue - _renderData.MinValue) / _renderData.MajorTickCount) * i;
+
+                    <line x1="@tickOuter.X" y1="@tickOuter.Y" x2="@tickInner.X" y2="@tickInner.Y" class="dial-tick" />
+                    @SvgText(labelPos.X, labelPos.Y, value.ToString("0"), "dial-label")
+                }
+
+                <line x1="200" y1="200" x2="@_needle.X" y2="@_needle.Y" class="dial-needle" />
+                <circle cx="200" cy="200" r="8" class="dial-center" />
+
+                @SvgText(200, 30, _renderData.Title, "dial-title")
+                @SvgText(200, 224, _renderData.Unit, "dial-unit")
+            </svg>
+        </div>
+    }
+</div>
+
+@code {
+    private DialSpec _spec = new();
+    private DialRenderData? _renderData;
+    private ValidationResult? _validation;
+    private (double X, double Y) _needle = (200, 80);
+
+    protected override void OnInitialized()
+    {
+        HandlePreview();
+    }
+
+    private void HandlePreview()
+    {
+        _validation = RuleEngine.Validate(_spec);
+
+        if (!_validation.IsValid)
+        {
+            _renderData = null;
+            return;
+        }
+
+        _renderData = RuleEngine.BuildRenderData(_spec);
+
+        var ratio = (_renderData.PreviewValue - _renderData.MinValue) /
+                    (_renderData.MaxValue - _renderData.MinValue);
+
+        var angle = -160 + (140 * ratio);
+        _needle = Polar(200, 200, 114, angle);
+    }
+
+    private static (double X, double Y) Polar(double cx, double cy, double radius, double angleDegrees)
+    {
+        var radians = Math.PI * angleDegrees / 180.0;
+        return (
+            cx + radius * Math.Cos(radians),
+            cy + radius * Math.Sin(radians)
+        );
+    }
+
+    private static MarkupString SvgText(double x, double y, string content, string cssClass)
+    {
+        var encoded = System.Net.WebUtility.HtmlEncode(content);
+
+        return new MarkupString(
+            $"""<text x="{x:0.##}" y="{y:0.##}" class="{cssClass}" text-anchor="middle">{encoded}</text>"""
+        );
+    }
+}

@@ -1,0 +1,46 @@
+# Build output
+**/bin/
+**/obj/
+
+# Publish output
+publish/
+**/publish/
+
+# User / IDE files
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# NuGet local cache artifacts
+*.nupkg
+*.snupkg
+
+# Temporary files
+*.tmp
+*.temp
+
+# Local secrets or machine-specific overrides
+**/appsettings.Local.json
+**/.env
+**/.env.*TestMock/
+
+
+# provisory until total remove
+DialMock/Components/Layout/NavMenu.razor
+DialMock/Components/Layout/NavMenu.razor.css
+DialMock/Components/Layout/ReconnectModal.razor
+DialMock/Components/Layout/ReconnectModal.razor.css
+DialMock/Components/Layout/ReconnectModal.razor.js
+DialMock/Components/Pages/Weather.razor
+DialMock/Components/Pages/Error.razor
