@@ -1,3 +1,6 @@
+/* The outer layout styles stay there, because those elements 
+  are real Razor-rendered DOM and do get the scope attribute:
+*/
 .dialmock-page {
     display: grid;
     gap: 1.5rem;
@@ -43,55 +46,4 @@
     border-radius: 10px;
     background: #fff4f4;
     border: 1px solid #e5b4b4;
-}
-
-.dial-preview {
-    width: 100%;
-    height: auto;
-    display: block;
-}
-
-.dial-arc,
-.dial-tick,
-.dial-needle,
-.dial-center {
-    stroke: #1f2937;
-    fill: none;
-}
-
-.dial-arc {
-    stroke-width: 4;
-}
-
-.dial-tick {
-    stroke-width: 2;
-}
-
-.dial-needle {
-    stroke-width: 3;
-    stroke: #b91c1c;
-}
-
-.dial-center {
-    fill: #1f2937;
-}
-
-.dial-title,
-.dial-unit,
-.dial-label {
-    fill: #111827;
-    font-family: Arial, sans-serif;
-}
-
-.dial-title {
-    font-size: 18px;
-    font-weight: 700;
-}
-
-.dial-unit {
-    font-size: 14px;
-}
-
-.dial-label {
-    font-size: 12px;
 }

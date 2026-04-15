@@ -1,6 +1,7 @@
 using DialMock.Components;
 using DialMock.Core.Engine;
 using DialMock.Core.Services;
+using DialMock.Rendering;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,7 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddScoped<DialRuleEngine>();
 builder.Services.AddScoped<DialEngine>();
+builder.Services.AddScoped<SvgDialRenderer>();
 
 var app = builder.Build();
 
