@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="DialMock.Core/DialMock.Core.csproj" />
+  <Project Path="DialMock/DialMock.csproj" />
+</Solution>

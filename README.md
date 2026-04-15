@@ -4,18 +4,34 @@ This repository contains my C# technical prototype projects, simulations, and in
 
 The goal of this workspace is to group reusable C# mockups and proof-of-concept applications in one place, with clean project separation and lightweight deployment notes.
 
-At the moment, the main project is:
+At the moment, the main solution is: **DialMock**: a Blazor-based dial and gauge simulation used to test rendering, scale logic, and preview behavior for technical instrument layouts.
 
-- **DialMock**: a Blazor-based dial and gauge simulation used to test rendering, scale logic, and preview behavior for technical instrument layouts.
+it contains the projects :
+**DialMock**
+**DialMock.Core** Core logic
 
-Further C# projects can be added later in the same repository as separate folders.
+
+ 
 
 ## Repository structure
 
 ```text
 .
-├── DialMock/              # Blazor dial simulation project
-├── TestMock/              # temporary or experimental test project
+csharp/
+├── DialMock/                (Blazor UI project)
+│   ├── Components/
+│   ├── Models/
+│   ├── Services/
+│   ├── DialMock.csproj
+│   └── ...
+│
+├── DialMock.Core/           (Class library – domain logic)
+│   ├── Models/
+│   ├── Services/
+│   ├── DialMock.Core.csproj
+│   └── ...
+│
+└── DialMock.slnx            (ONE solution file at root)
 ├── docs/                  # shared documentation
 └── README.md
 ```

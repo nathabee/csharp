@@ -60,17 +60,38 @@ Create an AutoCAD adapter project that consumes DialMock.Core for rendering.
 
 ```bash
 
+# go at the / of the repository
+cd ~/coding/github/csharp/
 
-cd ~/coding/github/csharp/DialMock
-
+# create a solution at / of the repository
 dotnet new sln -n DialMock
-dotnet sln add DialMock.csproj
+# this create DialMock.slnx
 
+# add existing blazor project to solution
+dotnet sln add DialMock/DialMock.csproj
 
+# verifiy the solution structure
+dotnet sln list
+
+#check project still buildable
+dotnet build
+
+# create Core as sibling :
 dotnet new classlib -n DialMock.Core
+
+# add core to the solution
 dotnet sln add DialMock.Core/DialMock.Core.csproj
 
-dotnet add DialMock.csproj reference DialMock.Core/DialMock.Core.csproj
+# add project reference
+dotnet add DialMock/DialMock.csproj reference DialMock.Core/DialMock.Core.csproj
+
+# remove template junk 
+rm DialMock.Core/Class1.cs
+
+####old:
+
+
+
 
 dotnet remove DialMock.csproj reference DialMock.Core/DialMock.Core.csproj
 

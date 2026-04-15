@@ -55,3 +55,37 @@ cd ~/coding/github
 git clone git@github.com:nathabee/csharp.git
 cd csharp
 ```
+
+
+## Run Docker
+
+### Dockerize the MOCK UI
+Dockerizing works for:
+
+Blazor Server
+Blazor Web
+ASP.NET Core
+
+It does NOT make sense for:
+
+AutoCAD plugin
+
+AutoCAD plugins must run inside AutoCAD on Windows.
+They are not container workloads.
+
+So architecture becomes:
+
+Web UI → containerized
+Core logic → shared
+AutoCAD plugin → Windows-only build
+
+```bash
+
+Build:
+
+docker build -t dialmock .
+
+Run:
+
+docker run -p 8080:8080 dialmock
+```
