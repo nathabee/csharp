@@ -1,10 +1,10 @@
 @page "/dialmock"
 @inject DialRuleEngine RuleEngine
-@inject DialGeometryCalculator Geometry
+@inject DialEngine Engine
 
 <PageTitle>Dial Mock</PageTitle>
 
-<h1>Dial Mock</h1>
+<h1>Dial Mock</h1> 
 
 <div class="dialmock-page">
     <div class="editor-card">
@@ -63,29 +63,36 @@
         }
     </div>
 
-    @if (_renderData is not null && _layout is not null)
+    @if (_renderData is not null && _drawing is not null)
     {
         <div class="preview-card">
             <svg viewBox="0 0 400 260" class="dial-preview" role="img" aria-label="Dial preview">
-                <path d="M 40 200 A 160 160 0 0 1 360 200" class="dial-arc" />
-
-                @foreach (var tick in _layout!.MajorTicks)
+                @foreach (var arc in _drawing.Arcs)
                 {
-                    var tickOuter = Polar(200, 200, 142, tick.AngleDeg);
-                    var tickInner = Polar(200, 200, 126, tick.AngleDeg);
-                    var labelPos = Polar(200, 200, 108, tick.AngleDeg);
-
-                    <line x1="@tickOuter.X" y1="@tickOuter.Y"
-                        x2="@tickInner.X" y2="@tickInner.Y"
-                        class="dial-tick" />
-
-                    @SvgText(labelPos.X, labelPos.Y,
-                        tick.Value.ToString("0"),
-                        "dial-label")
+                    <path d="@SvgArcPath(arc)" class="dial-arc" />
                 }
 
-                <line x1="200" y1="200" x2="@_needle.X" y2="@_needle.Y" class="dial-needle" />
+                @foreach (var line in _drawing.Lines)
+                {
+                    var cssClass = line == _drawing.Lines.Last() ? "dial-needle" : "dial-tick";
+
+                    <line x1="@SvgX(line.Start.X)"
+                        y1="@SvgY(line.Start.Y)"
+                        x2="@SvgX(line.End.X)"
+                        y2="@SvgY(line.End.Y)"
+                        class="@cssClass" />
+                }
+
                 <circle cx="200" cy="200" r="8" class="dial-center" />
+
+                @foreach (var text in _drawing.Texts)
+                {
+                    @SvgText(
+                        SvgX(text.Position.X),
+                        SvgY(text.Position.Y),
+                        text.Content,
+                        "dial-label")
+                }
 
                 @SvgText(200, 30, _renderData.Title, "dial-title")
                 @SvgText(200, 224, _renderData.Unit, "dial-unit")
@@ -98,15 +105,13 @@
     private DialSpec _spec = new();
     private DialRenderData? _renderData;
     private ValidationResult? _validation;
-    private DialLayoutData? _layout;
-
-    private (double X, double Y) _needle = (200, 80);
+    private DialDrawing? _drawing;
 
     protected override void OnInitialized()
     {
         HandlePreview();
     }
- 
+
     private void HandlePreview()
     {
         _validation = RuleEngine.Validate(_spec);
@@ -114,23 +119,37 @@
         if (!_validation.IsValid)
         {
             _renderData = null;
-            _layout = null;
+            _drawing = null;
             return;
         }
 
         _renderData = RuleEngine.BuildRenderData(_spec);
-
-        _layout = Geometry.Calculate(_spec);
-
-        _needle = Polar(200, 200, 114, _layout.NeedleAngleDeg);
+        _drawing = Engine.BuildDrawing(_spec);
     }
 
-    private static (double X, double Y) Polar(double cx, double cy, double radius, double angleDegrees)
+    private static double SvgX(double x) => 200 + x;
+
+    private static double SvgY(double y) => 200 - y;
+
+    private static string SvgArcPath(Arc2 arc)
+    {
+        var start = Polar(arc.Center, arc.Radius, arc.StartAngleDeg);
+        var end = Polar(arc.Center, arc.Radius, arc.StartAngleDeg + arc.SweepAngleDeg);
+
+        var largeArcFlag = Math.Abs(arc.SweepAngleDeg) > 180 ? 1 : 0;
+        var sweepFlag = arc.SweepAngleDeg >= 0 ? 0 : 1;
+
+        return $"M {SvgX(start.X):0.##} {SvgY(start.Y):0.##} " +
+               $"A {arc.Radius:0.##} {arc.Radius:0.##} 0 {largeArcFlag} {sweepFlag} {SvgX(end.X):0.##} {SvgY(end.Y):0.##}";
+    }
+
+    private static Point2 Polar(Point2 center, double radius, double angleDegrees)
     {
         var radians = Math.PI * angleDegrees / 180.0;
-        return (
-            cx + radius * Math.Cos(radians),
-            cy + radius * Math.Sin(radians)
+
+        return new Point2(
+            center.X + radius * Math.Cos(radians),
+            center.Y + radius * Math.Sin(radians)
         );
     }
 
