@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace DialMock.Models;
+namespace DialMock.Core.Models;
 
 public class DialSpec
 {

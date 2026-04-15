@@ -1,5 +1,5 @@
 using DialMock.Components;
-using DialMock.Services;
+using DialMock.Core.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,6 +7,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddScoped<DialRuleEngine>();
+builder.Services.AddScoped<DialGeometryCalculator>();
 
 var app = builder.Build();
 

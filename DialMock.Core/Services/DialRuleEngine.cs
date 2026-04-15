@@ -1,6 +1,6 @@
-using DialMock.Models;
+using DialMock.Core.Models;
 
-namespace DialMock.Services;
+namespace DialMock.Core.Services;
 
 public class DialRuleEngine
 {

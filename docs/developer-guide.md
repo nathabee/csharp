@@ -252,6 +252,19 @@ These must remain ignored by `.gitignore`.
 
 ---
 
+## Logic in the Core
+
+logic should not be part of the UI, that should just do rerendering
+so we make a neutral geometry contract inside :DialMock.Core/Models/DialLayoutData.cs
+
+the service DialMock.Core/Services/DialGeometryCalculator.cs contains the logic
+if you add a service you must register it in the UI: add the builder.Services.AddScoped<DialGeometryCalculator>(); inside the program.cs
+
+in the page.*.razor calling the service we need to :
+- inject : @inject DialGeometryCalculator Geometry
+- 
+
+---
 ## Future extension
 
 Additional C# projects can be added to this repository as separate folders alongside `DialMock`.

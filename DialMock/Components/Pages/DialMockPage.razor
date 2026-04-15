@@ -1,5 +1,6 @@
 @page "/dialmock"
 @inject DialRuleEngine RuleEngine
+@inject DialGeometryCalculator Geometry
 
 <PageTitle>Dial Mock</PageTitle>
 
@@ -62,24 +63,25 @@
         }
     </div>
 
-    @if (_renderData is not null)
+    @if (_renderData is not null && _layout is not null)
     {
         <div class="preview-card">
             <svg viewBox="0 0 400 260" class="dial-preview" role="img" aria-label="Dial preview">
                 <path d="M 40 200 A 160 160 0 0 1 360 200" class="dial-arc" />
 
-                @for (var i = 0; i <= _renderData.MajorTickCount; i++)
-                { 
-                    var angle = -160 + (140.0 / _renderData.MajorTickCount) * i;
-                    var tickOuter = Polar(200, 200, 142, angle);
-                    var tickInner = Polar(200, 200, 126, angle);
-                    var labelPos = Polar(200, 200, 108, angle);
+                @foreach (var tick in _layout!.MajorTicks)
+                {
+                    var tickOuter = Polar(200, 200, 142, tick.AngleDeg);
+                    var tickInner = Polar(200, 200, 126, tick.AngleDeg);
+                    var labelPos = Polar(200, 200, 108, tick.AngleDeg);
 
-                    var value = _renderData.MinValue +
-                        ((_renderData.MaxValue - _renderData.MinValue) / _renderData.MajorTickCount) * i;
+                    <line x1="@tickOuter.X" y1="@tickOuter.Y"
+                        x2="@tickInner.X" y2="@tickInner.Y"
+                        class="dial-tick" />
 
-                    <line x1="@tickOuter.X" y1="@tickOuter.Y" x2="@tickInner.X" y2="@tickInner.Y" class="dial-tick" />
-                    @SvgText(labelPos.X, labelPos.Y, value.ToString("0"), "dial-label")
+                    @SvgText(labelPos.X, labelPos.Y,
+                        tick.Value.ToString("0"),
+                        "dial-label")
                 }
 
                 <line x1="200" y1="200" x2="@_needle.X" y2="@_needle.Y" class="dial-needle" />
@@ -96,13 +98,15 @@
     private DialSpec _spec = new();
     private DialRenderData? _renderData;
     private ValidationResult? _validation;
+    private DialLayoutData? _layout;
+
     private (double X, double Y) _needle = (200, 80);
 
     protected override void OnInitialized()
     {
         HandlePreview();
     }
-
+ 
     private void HandlePreview()
     {
         _validation = RuleEngine.Validate(_spec);
@@ -110,16 +114,15 @@
         if (!_validation.IsValid)
         {
             _renderData = null;
+            _layout = null;
             return;
         }
 
         _renderData = RuleEngine.BuildRenderData(_spec);
 
-        var ratio = (_renderData.PreviewValue - _renderData.MinValue) /
-                    (_renderData.MaxValue - _renderData.MinValue);
+        _layout = Geometry.Calculate(_spec);
 
-        var angle = -160 + (140 * ratio);
-        _needle = Polar(200, 200, 114, angle);
+        _needle = Polar(200, 200, 114, _layout.NeedleAngleDeg);
     }
 
     private static (double X, double Y) Polar(double cx, double cy, double radius, double angleDegrees)

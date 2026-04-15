@@ -1,4 +1,4 @@
-namespace DialMock.Models;
+namespace DialMock.Core.Models;
 
 public class ValidationResult
 {
