@@ -1,254 +1,405 @@
+Yes — this is a good draft, but it’s too verbose and slightly inconsistent with what the code actually is now.
+Below is a **cleaned, compact, accurate version** that matches your current implementation and future direction.
 
-# architecture
-
-
-
-## (planned) architecture:
-
-csharp/
-│
-├── DialMock.slnx
-│
-├── DialMock/                (Blazor UI)
-│
-├── DialMock.Core/           (rules + geometry + drawing contract)
-│
-├── DialMock.Render.Svg/     (optional later)
-│
-├── DialMock.AutoCAD/        (future plugin project)
-│
-└── DialMock.Tests/
-
-
-1 solution many project :
-- DialMock is designed to run on a server : it is using the .NET blazor (Web UI framework)
-- DialMock.Core : contain the core logic , is rendering object to te UI. Core is the source of the dial description, independent of rendering technology (ie Autodcad, SVG)
-
-
-
-
-> A renderer-neutral dial engine reusable inside industrial CAD (AutoCAD plugin) and any other front-end.
-
-
+You can paste this directly into `docs/architecture.md`.
 
 ---
 
-## 1. Architectural Target State
+# DialMock Architecture
 
-You are building this:
+## Objective
 
+Build a **renderer-neutral dial engine** reusable across:
+
+* Blazor preview UI
+* AutoCAD plugin (future)
+* Other renderers (DXF, PDF, etc.)
+
+The Core must be independent of any UI or CAD platform.
+
+---
+
+# Architecture Evolution
+
+```text
+Phase 1 — Extract Core Models
+Phase 2 — Introduce Geometry Types
+Phase 3 — Move Geometry to Core Engine
+Phase 4 — Extract Renderer (next)
+Phase 5 — Add Tests
+Phase 6 — AutoCAD Adapter
 ```
+
+Current status:
+
+```text
+Phase 1 ✔
+Phase 2 ✔
+Phase 3 ✔
+Phase 4 → next
+```
+
+---
+
+# Target Architecture
+
+```text
 Dial Engine (Core)
         ↓
 Renderer Adapter Layer
         ↓
-Concrete Targets
+Concrete Renderers
    - SVG (Blazor preview)
    - AutoCAD plugin
-   - (Later: DXF export, PDF, etc.)
+   - DXF / PDF (future)
 ```
 
-Core must know **nothing** about:
+Core must not depend on:
 
-* SVG
 * Blazor
+* SVG
 * AutoCAD
 * HTML
-* Databases
-* UI
+* UI logic
 
-Core must only know geometry and dial logic.
+Core contains only:
 
----
-
-## 2. Strict Coordinate Convention (Non-Negotiable)
-
-Define this once and never change it:
-
-* Origin: (0,0) = dial center
-* X axis: right
-* Y axis: up (mathematical, NOT SVG)
-* Angles: degrees
-* 0° = positive X axis
-* Positive angle = CCW
-
-This matches:
-
-* Mathematics
-* AutoCAD
-* Most CAD systems
-
-SVG will adapt. AutoCAD will not.
-
-So Core uses **mathematical coordinate system**.
+* dial rules
+* validation
+* geometry
+* drawing construction
 
 ---
 
-## 3. Renderer-Neutral Geometry Contract
+# Repository Structure
 
-show interface
-
----
-
-## 4. Dial Engine Contract
-
-Core now produces **complete drawing primitives**:
-
-* Outer arc
-* Major ticks (lines)
-* Needle (line)
-* Labels (text)
-* Title
-* Unit
-
-UI will not compute geometry anymore.
-
----
-
-## 5. Rendering Adapters
-
-### 5.1 SVG Renderer (Blazor project)
-
-Create:
-
-```
-DialMock.Render.Svg (optional project)
-```
-
-Or keep inside UI project for now.
-
-```csharp
-public class SvgDialRenderer
-{
-    public string Render(DialDrawing drawing)
-}
-```
-
-This class:
-
-* Converts Y-up to Y-down
-* Converts Arc2 to SVG path
-* Converts Line2 to <line>
-* Converts Text2 to <text>
-
-All coordinate transformation happens here.
-
-Core stays clean.
-
----
-
-### 5.2 AutoCAD Renderer (Future)
-
-Separate project:
-
-```
-DialMock.AutoCAD
-```
-
-References:
-
-* DialMock.Core
-* Autodesk.AutoCAD.DatabaseServices
-
-Create:
-
-```csharp
-public class AutoCadDialRenderer
-{
-    public void Render(DialDrawing drawing, Database db)
-}
-```
-
-This:
-
-* Creates Arc entities
-* Creates Line entities
-* Creates DBText entities
-
-No math.
-Just mapping primitives.
-
----
-
-## 6. Project Structure (Final Form)
-
-```
+```text
 csharp/
 │
 ├── DialMock.slnx
 │
-├── DialMock.Core/
-│   ├── Geometry/
-│   ├── Engine/
-│   ├── Models/
-│   └── Validation/
+├── DialMock/                → Blazor UI (preview tool)
 │
-├── DialMock/                (Blazor UI)
+├── DialMock.Core/           → reusable dial engine
 │
-├── DialMock.AutoCAD/        (Plugin project)
+├── DialMock.Render.Svg/     → SVG renderer (planned)
 │
-├── DialMock.Tests/
+├── DialMock.AutoCAD/        → AutoCAD plugin (future)
 │
-└── docs/
+└── DialMock.Tests/          → unit tests (future)
 ```
 
-## Notes
-
-
-### Logic in the Core
-
-logic should not be part of the UI, that should just do rerendering
-so we make a neutral geometry contract inside :DialMock.Core/Models/DialLayoutData.cs
-
-the service DialMock.Core/Services/DialGeometryCalculator.cs contains the logic
-if you add a service you must register it in the UI: add the builder.Services.AddScoped<DialGeometryCalculator>(); inside the program.cs
-
-in the page.*.razor calling the service we need to :
-- inject : @inject DialGeometryCalculator Geometry
-- 
-
- 
 ---
-### Architecture layer:
- 
-Geometry does not call anything
-DialEngine uses Geometry
-DialRuleEngine uses Models
-UI calls RuleEngine + DialEngine
 
+# Core Architecture Layers
 
+```text
 DialMock.Core
 ├── Engine
 │   └── DialEngine.cs
+│
 ├── Geometry
-│   ├── Arc2.cs
-│   ├── DialDrawing.cs
-│   ├── Line2.cs
 │   ├── Point2.cs
-│   └── Text2.cs
+│   ├── Line2.cs
+│   ├── Arc2.cs
+│   ├── Text2.cs
+│   └── DialDrawing.cs
+│
 ├── Models
-│   ├── DialRenderData.cs
 │   ├── DialSpec.cs
-│   └── ValidationResult.cs
+│   ├── ValidationResult.cs
+│   └── DialRenderData.cs
+│
 └── Services
     └── DialRuleEngine.cs
+```
 
-#### Models
+---
 
-input and validation result
+# Layer Responsibilities
+
+## Models
+
+Contain dial input and validation data.
+
+```text
 DialSpec
 ValidationResult
-DialRenderData for now
+DialRenderData (temporary UI support)
+```
 
-#### Geometry
+Used by:
 
-dumb geometry types only
-Point2, Line2, Arc2, Text2, DialDrawing
-these are just data containers
+```text
+RuleEngine
+DialEngine
+UI
+```
 
-#### Engine / Services
+---
 
-DialEngine = builds geometry
-DialRuleEngine = validates and prepares non-geometry display data
+## Geometry
 
+Pure geometry definitions.
 
+No logic.
+No dependencies.
+
+```text
+Point2
+Line2
+Arc2
+Text2
+DialDrawing
+```
+
+These represent a renderer-neutral drawing.
+
+Used by:
+
+```text
+DialEngine
+Renderers
+```
+
+Never used directly by UI logic.
+
+---
+
+## Engine
+
+Builds the dial geometry.
+
+```text
+DialEngine
+```
+
+Responsibilities:
+
+* calculate angles
+* compute positions
+* generate ticks
+* generate needle
+* generate arc
+* generate labels
+* return `DialDrawing`
+
+Core geometry logic lives **only here**.
+
+---
+
+## Services
+
+Contain validation and non-geometry rules.
+
+```text
+DialRuleEngine
+```
+
+Responsibilities:
+
+* validate dial input
+* prepare display metadata
+* enforce domain rules
+
+---
+
+# UI Responsibilities (Blazor)
+
+The UI must not compute dial geometry.
+
+The UI only:
+
+```csharp
+_validation = RuleEngine.Validate(_spec);
+
+_renderData =
+    RuleEngine.BuildRenderData(_spec);
+
+_drawing =
+    Engine.BuildDrawing(_spec);
+```
+
+Then renders:
+
+```text
+DialDrawing → SVG
+```
+
+UI performs only coordinate adaptation:
+
+```text
+Y-up → Y-down conversion
+```
+
+No dial math.
+
+---
+
+# Coordinate System Convention
+
+Used by **Core only**.
+
+```text
+Origin: (0,0) = dial center
+X axis: right
+Y axis: up
+Angles: degrees
+0°: positive X
+Positive rotation: CCW
+```
+
+This matches:
+
+* mathematics
+* AutoCAD
+* industrial CAD systems
+
+SVG adapts to this system.
+
+---
+
+# Renderer Concept
+
+Renderers translate geometry into output formats.
+
+Core never renders.
+
+---
+
+## SVG Renderer (next phase)
+
+```text
+DialMock.Render.Svg
+└── SvgDialRenderer.cs
+```
+
+Responsibilities:
+
+* convert geometry to SVG
+* handle coordinate inversion
+* create SVG elements
+
+Example:
+
+```csharp
+public class SvgDialRenderer
+{
+    public string Render(DialDrawing drawing);
+}
+```
+
+---
+
+## AutoCAD Renderer (future)
+
+```text
+DialMock.AutoCAD
+└── AutoCadDialRenderer.cs
+```
+
+Responsibilities:
+
+* convert geometry to AutoCAD entities
+* write into CAD database
+
+Example:
+
+```csharp
+public class AutoCadDialRenderer
+{
+    public void Render(
+        DialDrawing drawing,
+        Database db);
+}
+```
+
+---
+
+# Current System Flow
+
+```text
+User Input
+     ↓
+DialSpec
+     ↓
+DialRuleEngine
+     ↓
+ValidationResult
+     ↓
+DialEngine
+     ↓
+DialDrawing
+     ↓
+Blazor SVG rendering
+```
+
+Later:
+
+```text
+DialDrawing
+     ↓
+AutoCAD Renderer
+     ↓
+CAD Entities
+```
+
+Same drawing.
+
+Different renderer.
+
+---
+
+# Key Design Principles
+
+## Renderer Neutrality
+
+Core produces geometry, not graphics.
+
+Never:
+
+```text
+SVG in Core
+AutoCAD in Core
+UI logic in Core
+```
+
+Always:
+
+```text
+Geometry → Renderer
+```
+
+---
+
+## Single Source of Geometry
+
+All dial math lives in:
+
+```text
+DialEngine.cs
+```
+
+Never in:
+
+```text
+UI
+Renderer
+Plugin
+```
+
+---
+
+## Clear Dependency Direction
+
+```text
+Geometry → used by Engine
+Engine → used by UI and CAD
+UI → never used by Core
+```
+
+Dependencies flow upward only.
+
+Never downward.
+
+---
