@@ -64,7 +64,7 @@ returns your server.
 Before touching Apache:
 
 ```bash
-curl -I http://127.0.0.1:18080/
+curl http://127.0.0.1:18080/
 ```
 
 If this fails, Apache will also fail.
@@ -144,8 +144,9 @@ sudo tee /etc/apache2/sites-available/dialmock-ssl.conf >/dev/null <<'APACHE'
     SSLCertificateKeyFile /etc/letsencrypt/live/dialmock.nathabee.de/privkey.pem
     Include /etc/letsencrypt/options-ssl-apache.conf
 
-    ProxyPreserveHost On
     ProxyRequests Off
+    ProxyPreserveHost On
+    AllowEncodedSlashes NoDecode
 
     RequestHeader set X-Forwarded-Proto "https"
     RequestHeader set X-Forwarded-Port "443"
@@ -153,8 +154,13 @@ sudo tee /etc/apache2/sites-available/dialmock-ssl.conf >/dev/null <<'APACHE'
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
 
-    ProxyPass        / http://127.0.0.1:18080/ connectiontimeout=5 timeout=60
-    ProxyPassReverse / http://127.0.0.1:18080/
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteCond %{HTTP:Connection} upgrade [NC]
+    RewriteRule ^/(.*)$ ws://127.0.0.1:18080/$1 [P,L]
+
+    ProxyPass        /  http://127.0.0.1:18080/ nocanon connectiontimeout=5 timeout=60
+    ProxyPassReverse /  http://127.0.0.1:18080/
 
     <Proxy http://127.0.0.1:18080/*>
         Require all granted
@@ -171,6 +177,11 @@ Enable:
 ```bash
 sudo a2ensite dialmock-ssl.conf
 sudo apache2ctl configtest
+sudo systemctl reload apache2
+```
+make sure are enabled:
+```bash
+sudo a2enmod proxy proxy_http proxy_wstunnel rewrite headers
 sudo systemctl reload apache2
 ```
 

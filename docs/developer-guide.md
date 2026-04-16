@@ -90,15 +90,10 @@ csharp/
 
 ## Build and run in development
 
-Go to the Blazor project:
+Go to the Blazor project and build:
 
 ```bash
 cd ~/coding/github/csharp/DialMock
-```
-
-Build:
-
-```bash
 dotnet restore
 dotnet build
 ```
