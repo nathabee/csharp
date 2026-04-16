@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        IMAGE_NAME = 'dialmock'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        RUNTIME_IMAGE = "dialmock:${env.BUILD_NUMBER}"
+        CONTAINER_NAME = "dialmock"
+        HOST_PORT = "18080"
+        CONTAINER_PORT = "8080"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'chmod +x scripts/*.sh'
+            }
+        }
+
+        stage('Docker access check') {
+            steps {
+                sh '''
+                    set -e
+                    docker version
+                '''
+            }
+        }
+
+        stage('Build runtime image') {
+            steps {
+                sh './scripts/ci-docker-build.sh'
+            }
+        }
+
+        stage('Deploy Local Container') {
+            steps {
+                sh './scripts/ci-deploy.sh'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deploy pipeline completed successfully.'
+        }
+        failure {
+            echo 'Deploy pipeline failed.'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

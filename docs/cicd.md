@@ -118,11 +118,33 @@ Used to:
 Dockerfile
 Jenkinsfile
 scripts/ci-build.sh
-scripts/ci-test.sh
+scripts/ci-test.sh 
 scripts/ci-docker-build.sh
 scripts/ci-docker-push.sh
-scripts/ci-deploy.sh   # later, when deployment is automated
+scripts/ci-deploy.sh 
+
+scripts/ci-build.sh
+
+    Build the test image only.
+
+scripts/ci-test.sh
+
+    Run tests from the test image.
+
+scripts/ci-docker-build.sh
+
+    Build the runtime image only.
+
+scripts/ci-deploy.sh
+
+    Stop old runtime container and start the new one.
+
+scripts/ci-docker-push.sh
+    Optional future step only if you later use a Docker registry.
+
+
 ```
+
 
 ### Test documentation
 
@@ -131,3 +153,28 @@ See:
 [docs/test.md](docs/test.md)
 
  
+
+---
+## prerequise
+
+in the CI env, Docker and Jenkins are installed 
+ 
+Run these commands on the machine where Jenkins is installed:
+
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+
+Then verify:
+
+id jenkins
+getent group docker
+ls -l /var/run/docker.sock
+
+You want to see that:
+
+jenkins is listed in the docker group
+/var/run/docker.sock is group-owned by docker
+
+Typical good result:
+
+srw-rw---- 1 root docker ... /var/run/docker.sock

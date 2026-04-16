@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Optional script for registry-based deployment flows.
+# Not used in the current local-build/local-deploy setup.
+
 echo "[ci-docker-push] starting"
 
 : "${IMAGE_NAME:?IMAGE_NAME is required}"
@@ -12,7 +15,7 @@ echo "[ci-docker-push] starting"
 FULL_IMAGE_TAG="${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
 FULL_IMAGE_LATEST="${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
 
-echo "${DOCKER_PASSWORD}" | docker login "${DOCKER_REGISTRY}" -u "${DOCKER_USERNAME}" --password-stdin
+printf '%s' "${DOCKER_PASSWORD}" | docker login "${DOCKER_REGISTRY}" -u "${DOCKER_USERNAME}" --password-stdin
 
 docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${FULL_IMAGE_TAG}"
 docker tag "${IMAGE_NAME}:latest" "${FULL_IMAGE_LATEST}"

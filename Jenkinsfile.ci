@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        TEST_IMAGE = "dialmock:ci-test-${env.BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'chmod +x scripts/*.sh'
+            }
+        }
+
+        stage('Docker access check') {
+            steps {
+                sh '''
+                    set -e
+                    docker version
+                '''
+            }
+        }
+
+        stage('Build test image') {
+            steps {
+                sh './scripts/ci-build.sh'
+            }
+        }
+
+        stage('Run tests') {
+            steps {
+                sh './scripts/ci-test.sh'
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'TestResults/**/*', fingerprint: true, allowEmptyArchive: true
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'CI pipeline completed successfully.'
+        }
+        failure {
+            echo 'CI pipeline failed.'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

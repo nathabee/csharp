@@ -1,28 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "[ci-test] starting"
+TEST_IMAGE="${TEST_IMAGE:?TEST_IMAGE is required}"
+TEST_CONTAINER="dialmock-test-${BUILD_NUMBER:-local}"
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "${ROOT_DIR}"
+echo "[ci-test] running tests from image: ${TEST_IMAGE}"
 
-IMAGE_NAME="${IMAGE_NAME:-dialmock}"
-IMAGE_TAG="${IMAGE_TAG:-latest}"
-TEST_IMAGE="${IMAGE_NAME}:ci-test-${IMAGE_TAG}"
-RESULTS_DIR="${ROOT_DIR}/TestResults"
+rm -rf TestResults
+mkdir -p TestResults
 
-rm -rf "${RESULTS_DIR}"
-mkdir -p "${RESULTS_DIR}"
+docker rm -f "${TEST_CONTAINER}" >/dev/null 2>&1 || true
 
-# create a container from the already-built test stage image
-CONTAINER_ID="$(docker create "${TEST_IMAGE}")"
-
-cleanup() {
-  docker rm -f "${CONTAINER_ID}" >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
-
-docker cp "${CONTAINER_ID}:/artifacts/testresults/." "${RESULTS_DIR}/"
-
-echo "[ci-test] copied test results to ${RESULTS_DIR}"
-echo "[ci-test] done"
+docker create --name "${TEST_CONTAINER}" "${TEST_IMAGE}" >/dev/null
+docker start -a "${TEST_CONTAINER}"
+docker cp "${TEST_CONTAINER}:/artifacts/testresults/." "TestResults/"
+docker rm -f "${TEST_CONTAINER}" >/dev/null 2>&1 || true

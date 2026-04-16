@@ -11,20 +11,15 @@ COPY DialMock.Tests/DialMock.Tests.csproj DialMock.Tests/
 
 RUN dotnet restore DialMock.slnx
 
-# ---- build/test source ----
+# ---- test ----
 FROM restore AS test
 WORKDIR /src
 COPY . .
 
 RUN dotnet build DialMock.slnx -c Release --no-restore
+RUN mkdir -p /artifacts/testresults
 
-# write test results inside the image filesystem
-RUN mkdir -p /artifacts/testresults && \
-    dotnet test DialMock.Tests/DialMock.Tests.csproj \
-      -c Release \
-      --no-build \
-      --logger "trx;LogFileName=DialMock.Tests.trx" \
-      --results-directory /artifacts/testresults
+CMD ["dotnet", "test", "DialMock.Tests/DialMock.Tests.csproj", "-c", "Release", "--no-build", "--logger", "trx;LogFileName=DialMock.Tests.trx", "--results-directory", "/artifacts/testresults"]
 
 # ---- publish ----
 FROM restore AS publish
@@ -40,6 +35,8 @@ RUN dotnet publish DialMock/DialMock.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+ENV ASPNETCORE_URLS=http://+:8080
 
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "DialMock.dll"]
