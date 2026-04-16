@@ -11,3 +11,4 @@ docker build \
   -t "${RUNTIME_IMAGE}" \
   -t dialmock:latest \
   .
+  
