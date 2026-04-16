@@ -1,4 +1,5 @@
 
+1.0.5 Add Jenkins and scripts/ci_* to handle Ci/CD and Docker build
 1.0.4 Phase 4B — Add tests and a non tested Jenkins file
 1.0.3 Phase 4A — Clean SVG adapter - Move SVG-specific conversion out of Razor
 1.0.2 Core is the source of dial description, independent of rendering technology (ie Autodcad, SVG)

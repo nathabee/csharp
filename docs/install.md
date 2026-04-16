@@ -2,9 +2,9 @@
 
  
 
+## develeoppement
 
-
-## Ubuntu install
+### Ubuntu install
 
 On supported Ubuntu versions, Microsoft’s install page shows installing the SDK with `apt`, and on Ubuntu 22.04+ the Ubuntu feeds and the Ubuntu .NET backports repository are the supported package sources. If `dotnet-sdk-10.0` is not found directly, add the backports PPA and retry. ([Microsoft Learn][3])
 
@@ -27,7 +27,7 @@ dotnet --version
 
 For development, install the **SDK**, not only the runtime. Microsoft explicitly distinguishes SDK for development and ASP.NET Core Runtime for running apps. ([Microsoft Learn][3])
 
-## Create the project  (if you want to create a new project)
+### Create the project  (if you want to create a new project)
 
 Microsoft’s ASP.NET Core getting-started flow uses the .NET CLI to create and run a Blazor Web App. ([Microsoft Learn][2])
 
@@ -46,7 +46,7 @@ cd csharp/DialMock
 
 ```
 
-## Clone the repository
+### Clone the repository
 
 Choose a working directory and clone the repository:
 
@@ -57,7 +57,7 @@ cd csharp
 ```
 
 
-## Run Docker
+## production :  Run Docker
 
 ### Dockerize the MOCK UI
 Dockerizing works for:

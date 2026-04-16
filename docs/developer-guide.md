@@ -1,25 +1,22 @@
-# Dvelopper guide
+# Developer Guide
 
+`DialMock` is a small Blazor app with:
 
-`DialMock` = a small Blazor app with:
+- one interactive page
+- one `DialSpec` model
+- one `DialRuleEngine`
+- one SVG preview
+- one validation panel
 
-* one interactive page
-* one `DialSpec` model
-* one `DialRuleEngine`
-* one SVG preview
-* one validation panel
+This is enough to be credible and still finishable.
 
-That is enough to be credible and still finishable.
-
-
- 
-
+---
 
 ## Ubuntu install
 
-On supported Ubuntu versions, Microsoft’s install page shows installing the SDK with `apt`, and on Ubuntu 22.04+ the Ubuntu feeds and the Ubuntu .NET backports repository are the supported package sources. If `dotnet-sdk-10.0` is not found directly, add the backports PPA and retry. ([Microsoft Learn][3])
+For development, install the **.NET SDK**, not only the runtime.
 
-Run this first:
+Try:
 
 ```bash
 sudo apt-get update
@@ -36,28 +33,27 @@ sudo apt-get install -y dotnet-sdk-10.0
 dotnet --version
 ```
 
-For development, install the **SDK**, not only the runtime. Microsoft explicitly distinguishes SDK for development and ASP.NET Core Runtime for running apps. ([Microsoft Learn][3])
+---
 
-## Create a new project  (to create your own project, not using existing code)
+## Create a new project
 
-Microsoft’s ASP.NET Core getting-started flow uses the .NET CLI to create and run a Blazor Web App. ([Microsoft Learn][2])
+Use this only if you want to create a new Blazor project from scratch.
 
 ```bash
 mkdir -p ~/coding/github/csharp
 cd ~/coding/github/csharp
 
-# first install and start code from null
 dotnet new blazor -n DialMock
- 
-cd csharp/DialMock
+cd DialMock
 
 dotnet run
-
 ```
+
+---
 
 ## Clone the repository
 
-Choose a working directory and clone the repository:
+SSH:
 
 ```bash
 cd ~/coding/github
@@ -65,7 +61,7 @@ git clone git@github.com:nathabee/csharp.git
 cd csharp
 ```
 
-If HTTPS is preferred:
+HTTPS:
 
 ```bash
 git clone https://github.com/nathabee/csharp.git
@@ -81,29 +77,33 @@ Example structure:
 ```text
 csharp/
 ├── DialMock/
-├── TestMock/
+├── DialMock.Core/
+├── DialMock.Tests/
 ├── docs/
-└── README.md
+├── scripts/
+├── Dockerfile
+├── Jenkinsfile
+└── DialMock.slnx
 ```
 
 ---
 
-## Build and run DialMock in development
+## Build and run in development
 
-Go to the project folder:
+Go to the Blazor project:
 
 ```bash
 cd ~/coding/github/csharp/DialMock
 ```
 
-Restore and build:
+Build:
 
 ```bash
 dotnet restore
 dotnet build
 ```
 
-Run in development mode with hot reload:
+Run with hot reload:
 
 ```bash
 dotnet watch
@@ -115,17 +115,17 @@ Open the URL shown in the terminal, for example:
 http://localhost:5185
 ```
 
-### Development notes
+### Notes
 
 * `dotnet watch` is the normal development workflow.
-* It recompiles automatically when files change.
-* This mode is intended for local testing and implementation work.
+* It rebuilds automatically when files change.
+* This is intended for local development only.
 
 ---
 
-## Publish DialMock for release
+## Publish for release
 
-Publish outside the project directory to avoid recursive publish issues:
+Publish outside the project folder:
 
 ```bash
 cd ~/coding/github/csharp/DialMock
@@ -133,7 +133,7 @@ rm -rf ../publish
 dotnet publish -c Release -o ../publish
 ```
 
-This creates a release output directory here:
+This creates:
 
 ```text
 ~/coding/github/csharp/publish
@@ -143,24 +143,18 @@ This creates a release output directory here:
 
 ## Run the published application
 
-Start the published build:
-
 ```bash
 cd ~/coding/github/csharp/publish
 dotnet DialMock.dll
 ```
 
-The application usually starts on:
+The application usually starts on a local HTTP port, for example:
 
 ```text
 http://localhost:5000
 ```
 
----
-
-## Stop the application
-
-In the terminal where the app is running:
+Stop with:
 
 ```text
 Ctrl+C
@@ -168,9 +162,7 @@ Ctrl+C
 
 ---
 
-## Updating from GitHub
-
-To update an existing clone:
+## Update from GitHub
 
 ```bash
 cd ~/coding/github/csharp
@@ -199,10 +191,7 @@ dotnet publish -c Release -o ../publish
 
 ## Common issues
 
-### Publish fails because old publish output is detected
-
-Cause:
-the publish directory was created inside the project tree or old generated assets remain.
+### Publish fails because of old output
 
 Fix:
 
@@ -211,20 +200,17 @@ rm -rf ../publish
 dotnet publish -c Release -o ../publish
 ```
 
-Do not publish to `./publish` inside the project folder for this web project.
+Do not publish to `./publish` inside the web project folder.
 
 ### HTTPS redirection warning in development
 
-Example warning:
+Example:
 
 ```text
 Failed to determine the https port for redirect
 ```
 
-This usually means the app is running on HTTP only in the current local setup.
-
-For local mock or prototype work, this is not necessarily blocking.
-If needed later, configure HTTPS properly in the launch profile or hosting setup.
+For local mock/prototype work, this is usually not blocking.
 
 ### UI changes are not visible
 
@@ -236,7 +222,7 @@ dotnet build
 dotnet watch
 ```
 
-If necessary, refresh the browser fully.
+If needed, hard-refresh the browser.
 
 ---
 
@@ -248,11 +234,62 @@ Do not commit generated folders such as:
 * `obj/`
 * `publish/`
 
-These must remain ignored by `.gitignore`.
+These should stay ignored by `.gitignore`.
 
 ---
 
-## Test
+## Docker validation
 
-see test.md
+### Build test stage and extract test results
+
+```bash
+cd ~/coding/github/csharp
+
+docker build --target test -t dialmock:ci-test-local .
+docker create --name dialmock-test-copy dialmock:ci-test-local
+docker cp dialmock-test-copy:/artifacts/testresults/. ./TestResults/
+docker rm -f dialmock-test-copy
+```
+
+### Build runtime image
+
+```bash
+docker build -t dialmock:local .
+```
+
+### Run locally
+
+```bash
+docker run --rm -p 8080:8080 --name dialmock-local dialmock:local
+```
+
+Open:
+
+```text
+http://localhost:8080
+```
+
+If the app loads, then you have validated:
+
+* build inside Docker
+* test inside Docker
+* publish inside Docker
+* runtime image works
+* container starts correctly
+
+---
+
+## Functional tests
+
+See:
+
+[docs/test.md](docs/test.md)
+
+---
+
+## CI/CD
+
+See:
+
+[docs/ci-cd.md](docs/ci-cd.md)
  

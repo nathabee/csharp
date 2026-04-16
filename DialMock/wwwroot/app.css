@@ -59,6 +59,14 @@ h1:focus {
     text-align: start;
 }
 
+
+/* 
+Blazor rewrites selectors so they only match elements that carry a generated scope attribute like:
+b-xxxxx. But the SVG elements generate through @((MarkupString)_svgContent) are raw HTML strings. 
+They do not get the Blazor scope attribute. so we need to use this css
+*/
+
+
 .dial-preview {
     width: 100%;
     height: auto;

@@ -8,73 +8,26 @@ pipeline {
 
     environment {
         IMAGE_NAME = 'dialmock'
-        IMAGE_TAG  = "${env.BUILD_NUMBER}"
-        DOTNET_CLI_TELEMETRY_OPTOUT = '1'
-        DOTNET_NOLOGO = '1'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
 
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
+                sh 'chmod +x scripts/*.sh'
             }
         }
 
-        stage('Restore') {
+        stage('Build + Test in Docker') {
             steps {
-                sh 'dotnet restore DialMock.slnx'
-            }
-        }
-
-        stage('Build') {
-            steps {
-                sh 'dotnet build DialMock.slnx -c Release --no-restore'
-            }
-        }
-
-        stage('Test') {
-            steps {
-                sh '''
-                    mkdir -p TestResults
-                    dotnet test DialMock.Tests/DialMock.Tests.csproj \
-                      -c Release \
-                      --no-build \
-                      --logger "trx;LogFileName=DialMock.Tests.trx" \
-                      --results-directory TestResults
-                '''
+                sh './scripts/ci-build.sh'
+                sh './scripts/ci-test.sh'
             }
             post {
                 always {
                     archiveArtifacts artifacts: 'TestResults/**/*', fingerprint: true
                 }
-            }
-        }
-
-        stage('Publish App') {
-            steps {
-                sh '''
-                    rm -rf publish
-                    dotnet publish DialMock/DialMock.csproj \
-                      -c Release \
-                      --no-build \
-                      -o publish
-                '''
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'publish/**/*', fingerprint: true
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                sh '''
-                    docker build \
-                      -t ${IMAGE_NAME}:${IMAGE_TAG} \
-                      -t ${IMAGE_NAME}:latest \
-                      .
-                '''
             }
         }
 
@@ -86,23 +39,46 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'docker-registry-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
+                    usernameVariable: 'DOCKER_USERNAME',
+                    passwordVariable: 'DOCKER_PASSWORD'
                 )]) {
-                    sh '''
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} your-registry/${IMAGE_NAME}:${IMAGE_TAG}
-                        docker tag ${IMAGE_NAME}:latest your-registry/${IMAGE_NAME}:latest
-                        docker push your-registry/${IMAGE_NAME}:${IMAGE_TAG}
-                        docker push your-registry/${IMAGE_NAME}:latest
-                    '''
+                    withEnv([
+                        'DOCKER_REGISTRY=your-registry.example.com'
+                    ]) {
+                        sh './scripts/ci-docker-push.sh'
+                    }
                 }
+            }
+        }
+        */
+
+        /*
+        stage('Deploy Local Container') {
+            when {
+                branch 'main'
+            }
+            steps {
+                sh '''
+                    docker stop dialmock || true
+                    docker rm dialmock || true
+
+                    docker run -d \
+                      --name dialmock \
+                      -p 8080:8080 \
+                      ${IMAGE_NAME}:${IMAGE_TAG}
+                '''
             }
         }
         */
     }
 
     post {
+        success {
+            echo 'Docker-only CI pipeline completed successfully.'
+        }
+        failure {
+            echo 'Docker-only CI pipeline failed.'
+        }
         always {
             cleanWs()
         }

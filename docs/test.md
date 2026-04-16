@@ -32,7 +32,7 @@ touch DialMock.Tests/DialRuleEngineTests.cs
 
 # run
 dotnet test
-````
+```
 
 ---
 
@@ -87,7 +87,7 @@ Checks:
 * [x] preview value must stay in range
 * [x] major tick count must be valid
 
-Result now:
+### Result
 
 * [x] 10 tests pass
 
@@ -98,22 +98,22 @@ Result now:
 ### Geometry robustness
 
 * [ ] overlapping labels for high tick counts
-* [ ] overlapping or visually bad text positions for long values
+* [ ] label placement for long values
 * [ ] exact tick spacing for several ranges
 * [ ] exact arc start/end coordinates
-* [ ] zero or negative range handling at engine level
-* [ ] behavior with decimal values
-* [ ] behavior with negative min/max values
+* [ ] zero or invalid range handling at engine level
+* [ ] decimal values
+* [ ] negative min/max values
 
 ### Contract stability
 
 * [ ] needle is always the last line
-* [ ] title/unit handling moved fully into drawing contract
-* [ ] drawing stays valid when spec changes later
+* [ ] title/unit moved fully into drawing contract
+* [ ] drawing stays valid when spec evolves
 
 ### Renderer tests
 
-* [ ] SVG output smoke test
+* [ ] SVG smoke test
 * [ ] SVG arc path correctness
 * [ ] SVG contains expected classes/elements
 * [ ] visual regression screenshot test
@@ -129,7 +129,7 @@ Result now:
 
 ## Notes
 
-The current tests protect the Core engine, not the UI layout.
+These tests currently protect the Core engine, not the UI layout.
 
 This means:
 
@@ -138,4 +138,9 @@ This means:
 * AutoCAD adapter can be added later
 
 As long as Core tests stay green, the dial logic remains stable.
+
+For Docker / Jenkins / deployment validation, see:
+
+* `developer-guide.md`
+* `ci-cd.md`
  
