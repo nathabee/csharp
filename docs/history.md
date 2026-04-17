@@ -122,4 +122,18 @@ mkdir -p DialAutoCADPlugin/Abstractions
 mkdir -p DialAutoCADPlugin/Mapping
 mkdir -p DialAutoCADPlugin/Services
 
+# add files
+
+
+# phase 3
+dotnet new console -n AutoCadMock
+dotnet sln DialMock.slnx add AutoCadMock/AutoCadMock.csproj
+dotnet add AutoCadMock/AutoCadMock.csproj reference DialAutoCADPlugin/DialAutoCADPlugin.csproj
+dotnet add AutoCadMock/AutoCadMock.csproj reference DialMock.CadModel/DialMock.CadModel.csproj
+mkdir -p AutoCadMock/Diagnostics
+mkdir -p AutoCadMock/Samples
+
+# check dotnet list AutoCadMock/AutoCadMock.csproj reference
+# add files
+
 ``` 

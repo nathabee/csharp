@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="AutoCadMock/AutoCadMock.csproj" />
   <Project Path="DialAutoCADPlugin/DialAutoCADPlugin.csproj" />
   <Project Path="DialMock.CadModel/DialMock.CadModel.csproj" />
   <Project Path="DialMock.Core/DialMock.Core.csproj" />

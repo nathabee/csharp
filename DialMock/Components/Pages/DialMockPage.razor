@@ -2,6 +2,7 @@
 @inject DialRuleEngine RuleEngine
 @inject DialEngine Engine
 @inject SvgDialRenderer SvgRenderer
+@using DialMock.Core.Samples
 
 <PageTitle>Dial Mock</PageTitle>
 
@@ -75,7 +76,8 @@
 </div>
 
 @code {
-    private DialSpec _spec = new();
+    // private DialSpec _spec = new();
+    private DialSpec _spec = DialSpecSamples.CreateDefault();
     private DialRenderData? _renderData;
     private ValidationResult? _validation;
     private DialDrawing? _drawing;

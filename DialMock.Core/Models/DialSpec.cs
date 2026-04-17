@@ -5,17 +5,17 @@ namespace DialMock.Core.Models;
 public class DialSpec
 {
     [Required]
-    public string Title { get; set; } = "Pressure";
+    public string Title { get; set; } = string.Empty;
 
     [Required]
-    public string Unit { get; set; } = "bar";
+    public string Unit { get; set; } = string.Empty;
 
-    public double MinValue { get; set; } = 0;
+    public double MinValue { get; set; }
 
-    public double MaxValue { get; set; } = 10;
+    public double MaxValue { get; set; }
 
-    public double PreviewValue { get; set; } = 6;
+    public double PreviewValue { get; set; }
 
     [Range(2, 20)]
-    public int MajorTickCount { get; set; } = 10;
+    public int MajorTickCount { get; set; }
 }

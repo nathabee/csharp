@@ -1,518 +1,261 @@
-# TODO list
+# TODO list for 1.1.x
+
+
+* Phase 1 done: `DialMock.CadModel`
+* Phase 2 done: `DialAutoCADPlugin`
+* Phase 3 done: `AutoCadMock` console host calling the plugin and producing a CAD summary
+
+
  
-
- To DO LIST for 1.1.x 
-
- 
-
-## Architecture validation
-
-### What matches your expectations
-
-The existing split is already meaningful:
-
-* **DialMock.Core** contains the dial domain logic and primitive geometry generation.
-* **DialMock** is a separate UI/rendering application.
-* The current dependency direction is correct:
-
-  * `DialMock.Core` is referenced by `DialMock`
-  * Core does not reference Blazor
-  * UI rendering lives outside Core
-
-That part is sound.
-
-### What is currently mixed or too early-bound
-
-There are two architectural issues in the current solution:
-
-#### 1. Core is neutral with respect to UI, but not yet neutral with respect to downstream rendering semantics
-
-`DialMock.Core` currently returns this model:
-
-* `Point2`
-* `Line2`
-* `Arc2`
-* `Text2`
-* `DialDrawing`
-
-That is acceptable as an intermediate step, but it is already a drawing-oriented output model, not purely business/domain logic. In practice, this is fine for your project, because your stated goal is “geometry generation → neutral drawing model.” So I would not fight that.
-
-But I would be precise about the distinction:
-
-* `DialMock.Core` is **renderer-neutral**
-* it is **not** “no-output-model”
-* it already defines a neutral 2D drawing contract
-
-That means the next CAD layer should consume `DialDrawing`, not bypass it.
-
-#### 2. `DialRenderData` is currently mixed into Core even though part of it is presentation-facing
-
-`DialRenderData` contains:
-
-* title
-* unit
-* min/max
-* preview value
-* tick count
-
-That is not catastrophic, but architecturally it is fuzzy. It is not pure validation output, and it is not pure geometry. It exists mainly because the SVG preview needs display metadata.
-
-For the CAD phase, I would avoid growing that pattern further. Do not let `DialAutoCADPlugin` depend on `DialRenderData` unless there is a clear need.
-
-## What is present in the ZIP
-
-The ZIP contains these projects only:
-
-* `DialMock.Core`
-* `DialMock`
-
-I did **not** find:
-
-* `DialAutoCADPlugin`
-* `AutoCadMock`
-* a solution file in the ZIP root
-
-So this is not yet the next-phase scaffold. It is still the first-phase base.
-
-## My verdict on the current architecture
-
-Yes, the current architecture is aligned enough to proceed, with one important adjustment:
-
-**Do not let the plugin layer invent its own direct business logic.**
-The plugin layer should translate from Core’s neutral drawing output into a CAD-oriented model.
-
-That means your next phase should be based on this pipeline:
-
-`DialSpec -> DialMock.Core -> DialDrawing -> CAD mapping layer -> CadDrawing -> DXF export`
-
-That is the correct separation.
-
 ---
 
-## Proposed project structure additions
 
-I agree with your preview almost entirely. For a portfolio-quality result, I would add **three** projects, not just two.
 
-### Recommended structure
+## Phase 4 — tighten plugin boundary for external-host usage
 
-```text
-DialMock.Core
-    domain + dial geometry generation
-    outputs DialDrawing
+Goal: make `AutoCadMock` behave more like a real consumer of the plugin DLL, not like an internal app that knows Core input types.
 
-DialMock.CadModel
-    CAD-neutral entity model
-    CadDrawing, CadLine, CadArc, CadCircle, CadText, CadLayer
+### Tasks
 
-DialAutoCADPlugin
-    mapping/application layer
-    consumes DialMock.Core
-    produces DialMock.CadModel
-    optionally coordinates export services
+1. Introduce a plugin-side request model, for example:
 
-AutoCadMock
-    host/test app
-    calls DialAutoCADPlugin only
-    writes DXF / runs export scenario
+   * `DialAutoCADPlugin/Models/DialCadRequest.cs`
 
-DialMock
-    Blazor preview
-    consumes DialMock.Core
-```
+2. Change the public plugin API from:
 
-## Why `DialMock.CadModel` should be separate
+   * `CadDrawing Build(DialSpec spec)`
 
-This is the key architectural point.
+   to:
 
-If you put `CadDrawing`, `CadLine`, `CadArc`, etc. directly inside `DialAutoCADPlugin`, then the plugin project becomes both:
+   * `CadDrawing Build(DialCadRequest request)`
 
-* the reusable integration layer
-* the owner of the CAD model contract
+3. Map `DialCadRequest` internally to `DialSpec` inside `DialAutoCADPlugin`
 
-That is too much responsibility.
+4. Remove the direct `DialMock.Core` reference from `AutoCadMock`
 
-A separate `DialMock.CadModel` gives you:
+5. Update `AutoCadMock` to construct `DialCadRequest` instead of `DialSpec`
 
-* a stable CAD-neutral contract
-* easier testing
-* future reuse by:
+### Expected result
 
-  * DXF exporter
-  * mock viewer
-  * future real AutoCAD adapter
-  * maybe later SVG-from-CAD or PDF export
-
-So yes: **Step 1 should be `DialMock.CadModel`**.
-
----
-
-## Dependency direction I recommend
-
-```text
-DialMock.Core
-    ↑
-DialAutoCADPlugin
-    ↑
-AutoCadMock
-
-DialMock.CadModel
-    ↑
-DialAutoCADPlugin
-    ↑
-AutoCadMock
-
-DialMock.Core
-    ↑
-DialMock
-```
-
-More explicitly:
-
-* `DialMock.Core` references nobody
-* `DialMock.CadModel` references nobody
-* `DialAutoCADPlugin` references:
-
-  * `DialMock.Core`
-  * `DialMock.CadModel`
-* `AutoCadMock` references:
+* `AutoCadMock` references only:
 
   * `DialAutoCADPlugin`
-  * possibly `DialMock.CadModel` only if needed for display/export inspection
-* `DialMock` references:
-
-  * `DialMock.Core`
-
-I would keep `DialMock` completely independent from the CAD branch.
+  * `DialMock.CadModel`
+* `AutoCadMock` no longer knows Core input types
+* plugin boundary becomes closer to a real external DLL contract
 
 ---
 
-## First minimal interfaces
+## Phase 5 — improve CAD mapping semantics
 
-Keep these small. Do not over-abstract on day one.
+Goal: make CAD output more explicit and more useful for downstream CAD/export workflows.
 
-### In `DialMock.CadModel`
+### Tasks
 
-Entities first, no service abstractions yet:
+1. Keep existing mappings:
 
-```text
-CadDrawing
-CadEntity (base/marker)
-CadLine
-CadArc
-CadCircle
-CadText
-CadLayer
-```
+   * `Line2 -> CadLine`
+   * `Arc2 -> CadArc`
+   * `Text2 -> CadText`
 
-Minimal common concerns:
+2. Add plugin-owned CAD extras deliberately and explicitly:
 
-* geometry
-* layer name
-* maybe line type / color later
-* no AutoCAD SDK types
-* no DXF writer logic here
+   * center circle
+   * optional title text
+   * optional unit text
 
-### In `DialAutoCADPlugin`
+3. Stop relying only on “last line = needle” once a cleaner distinction exists
 
-Start with only two service interfaces.
+   * either by explicit mapping convention
+   * or by richer internal classification before mapping
 
-#### 1. Core-to-CAD mapping
+4. Expand semantic layers as needed:
 
-```csharp
-public interface IDialCadBuilder
-{
-    CadDrawing Build(DialSpec spec);
-}
-```
+   * `DIAL_ARC`
+   * `DIAL_TICKS`
+   * `DIAL_LABELS`
+   * `DIAL_NEEDLE`
+   * `DIAL_CENTER`
+   * `DIAL_META`
 
-This is the main application service.
+5. Review text defaults for CAD output:
 
-Internally it can:
+   * text height
+   * rotation handling
+   * alignment strategy if needed later
 
-* validate spec
-* call `DialEngine`
-* map `DialDrawing` to `CadDrawing`
+### Expected result
 
-#### 2. Optional export abstraction
-
-If you want DXF in the plugin layer from the start:
-
-```csharp
-public interface ICadDrawingExporter
-{
-    void Export(CadDrawing drawing, Stream output);
-}
-```
-
-or
-
-```csharp
-public interface ICadDrawingExporter
-{
-    string ExportToString(CadDrawing drawing);
-}
-```
-
-For the first pass, I prefer `Stream output`.
-
-### Internal mapper interface
-
-Only if you want one extra seam for testing:
-
-```csharp
-internal interface IDialDrawingToCadMapper
-{
-    CadDrawing Map(DialDrawing drawing, DialSpec spec);
-}
-```
-
-This one can remain internal. It does not need to be public API yet.
+* CAD drawing is more readable in downstream tools
+* layer semantics are stable
+* CAD output is no longer just a raw mirror of Core primitives
 
 ---
 
-## Minimal first entity set
+## Phase 6 — introduce DXF export service
 
-I would start with these fields only.
+Goal: export `CadDrawing` to DXF through a reusable service, not ad hoc host logic.
 
-### `CadDrawing`
+### Tasks
 
-* `IReadOnlyList<CadLayer> Layers`
-* `IReadOnlyList<CadEntity> Entities`
+1. Add an export abstraction, for example:
 
-or even simpler:
+   * `ICadDrawingExporter`
 
-* `List<CadEntity> Entities`
+2. Decide export placement:
 
-At the beginning, layers can be implicit by entity `LayerName`.
+   * either in `DialAutoCADPlugin`
+   * or in a dedicated project such as `DialMock.Dxf`
 
-### `CadLine`
+3. Implement first DXF writer for:
 
-* `Start`
-* `End`
-* `LayerName`
+   * layers
+   * lines
+   * arcs
+   * text
+   * circles if already added
 
-### `CadArc`
+4. Keep DXF as an export format only
 
-* `Center`
-* `Radius`
-* `StartAngleDeg`
-* `SweepAngleDeg`
-* `LayerName`
+   * internal abstraction remains `CadDrawing`
 
-### `CadCircle`
+5. Make export callable from `AutoCadMock` through the plugin/exporter contract
 
-* `Center`
-* `Radius`
-* `LayerName`
+### Expected result
 
-### `CadText`
-
-* `Position`
-* `Content`
-* `Height`
-* `RotationDeg`
-* `LayerName`
-
-### `CadLayer`
-
-* `Name`
-
-That is enough for first DXF export.
+* `CadDrawing` can be exported to a real `.dxf` file
+* exporter logic is reusable
+* host does not contain DXF transformation rules
 
 ---
 
-## Recommended layer naming from day one
+## Phase 7 — extend AutoCadMock from summary host to export host
 
-Even for MVP, do not dump everything into layer `0`.
+Goal: turn `AutoCadMock` into a practical verification host for the plugin pipeline.
 
-Use semantic layers immediately:
+### Tasks
 
-* `DIAL_ARC`
-* `DIAL_TICKS`
-* `DIAL_LABELS`
-* `DIAL_NEEDLE`
-* `DIAL_CENTER`
-* `DIAL_META`
+1. Keep the existing summary output
 
-This makes DXF output inspectable in a real CAD viewer and makes the project look engineered, not improvised.
+2. Add DXF file generation to disk
 
----
+3. Add output folder conventions
 
-## Step-by-step implementation plan
+4. Add simple command-line options later if useful, for example:
 
-## Phase 1 — stabilize architecture
+   * output path
+   * sample selection
+   * alternate request values
 
-1. Add a solution file if missing.
-2. Create `DialMock.CadModel`.
-3. Move no existing Core geometry yet.
-4. Keep Core unchanged while introducing the CAD branch.
+5. Keep `AutoCadMock` focused on orchestration:
 
-## Phase 2 — define CAD-neutral model
+   * build request
+   * call plugin
+   * call exporter
+   * save file
+   * print diagnostics
 
-5. Implement:
+### Expected result
 
-   * `CadPoint2`
-   * `CadEntity`
-   * `CadLine`
-   * `CadArc`
-   * `CadCircle`
-   * `CadText`
-   * `CadLayer`
-   * `CadDrawing`
-6. Keep model small and serialization-friendly.
-
-## Phase 3 — create plugin layer
-
-7. Create `DialAutoCADPlugin`.
-8. Add `IDialCadBuilder`.
-9. Implement a first `DialCadBuilder` using:
-
-   * `DialRuleEngine`
-   * `DialEngine`
-   * mapper from `DialDrawing` to `CadDrawing`
-
-## Phase 4 — mapping strategy
-
-10. Map Core output into CAD entities:
-
-* `Line2 -> CadLine`
-* `Arc2 -> CadArc`
-* `Text2 -> CadText`
-
-11. Add plugin-owned CAD extras not present in Core:
-
-* center circle
-* optional title/unit text
-
-12. Assign semantic layers.
-
-This is important: the plugin is allowed to enrich the drawing for CAD use, but it should do so explicitly and predictably.
-
-## Phase 5 — DXF export
-
-13. Decide where DXF export lives.
-
-For clean architecture, I recommend one of these two options:
-
-### Option A — export in `DialAutoCADPlugin`
-
-Good for now if you want fewer projects.
-
-### Option B — separate `DialMock.Dxf`
-
-Better long term if you expect multiple CAD outputs.
-
-For your current phase, Option A is acceptable.
-For portfolio quality, Option B is stronger.
-
-My recommendation:
-
-* start with exporter in `DialAutoCADPlugin`
-* keep it behind `ICadDrawingExporter`
-* split later only if it grows
-
-## Phase 6 — host application
-
-14. Create `AutoCadMock` as a console app first.
-15. It should:
-
-* create `DialSpec`
-* call `IDialCadBuilder`
-* export DXF
-* write file to disk
-
-16. No direct call from host to Core.
-
-## Phase 7 — validation
-
-17. Open DXF in a free viewer.
-18. Verify:
-
-* arc orientation
-* text positions
-* layer separation
-* scale consistency
-* needle direction
+* `AutoCadMock` becomes the practical end-to-end mock CAD host
+* it remains a host, not a second business layer
 
 ---
 
-## Architectural decisions I recommend now
+## Phase 8 — validation in external CAD viewer
 
-## 1. Keep Core unchanged at first
+Goal: verify that exported CAD output is geometrically and semantically correct.
 
-Do not refactor Core before the CAD branch exists.
-You do not yet have enough pressure to justify restructuring it.
+### Tasks
 
-## 2. Do not make DXF the internal model
+1. Open DXF in a free CAD viewer
 
-DXF is an export format, not your internal abstraction.
+2. Verify:
 
-Internal model:
+   * arc orientation
+   * text placement
+   * label spacing
+   * needle direction
+   * scale consistency
+   * layer separation
 
-* `CadDrawing`
+3. Compare visual result against the Blazor SVG preview
 
-External format:
+4. Note mismatches between SVG and CAD expectations
 
-* DXF
+5. Fix mapping/export conventions as needed
 
-That distinction matters.
+### Expected result
 
-## 3. Do not make `AutoCadMock` the exporter owner
-
-`AutoCadMock` should be a host, not the place where CAD logic lives.
-
-Its job is:
-
-* wiring
-* invoking plugin services
-* saving output
-* maybe displaying basic diagnostics
-
-## 4. Avoid premature AutoCAD terminology
-
-Do not create types like:
-
-* `AcadEntity`
-* `AcadDocument`
-* `AutoCadLayerService`
-
-You are not integrating with AutoCAD yet.
-Use generic CAD terminology.
+* CAD output is visually trustworthy
+* geometry is validated outside the codebase
+* SVG and CAD paths are known to be aligned or intentionally different
 
 ---
 
-## One refinement to your preview
+## Phase 9 — add CAD-path tests
 
-You wrote:
+Goal: protect the new branch with tests before the exporter and mapping grow further.
 
-```text
-AutoCadMock
-    consumes CadDrawing
-    exports DXF
-```
+### Tasks
 
-I would tighten that to:
+1. Add tests for `DialAutoCADPlugin`
 
-```text
-AutoCadMock
-    calls DialAutoCADPlugin
-    receives CadDrawing or export result
-```
+2. Verify:
 
-and preferably:
+   * valid request produces `CadDrawing`
+   * invalid request fails predictably
+   * expected entity counts
+   * expected layer assignment
+   * needle entity classification
+   * center/meta entities when introduced
 
-```text
-AutoCadMock
-    calls DialAutoCADPlugin services
-    does not own CAD transformation rules
-```
+3. Add exporter tests once DXF is implemented:
 
-If `AutoCadMock` starts exporting DXF itself, the host begins to absorb reusable behavior that belongs lower in the stack.
+   * expected sections exist
+   * expected entities are written
+   * output is non-empty and structurally valid
 
-So the cleaner version is:
+### Expected result
 
-* `DialAutoCADPlugin` builds `CadDrawing`
-* optionally `DialAutoCADPlugin` also exports DXF
-* `AutoCadMock` orchestrates and writes files
+* CAD path becomes regression-safe
+* future refactors are less risky
 
---- 
+---
+
+## Phase 10 — decide how far Core cleanup should go
+
+Goal: review remaining architectural fuzziness without destabilizing the existing working app.
+
+### Tasks
+
+1. Reassess whether `DialRenderData` should remain in Core
+2. Keep Core renderer-neutral
+3. Avoid pulling CAD concerns back into Core
+4. Decide whether current `DialDrawing` shape remains sufficient
+5. Only refactor Core if there is clear pressure from:
+
+   * CAD mapping
+   * SVG rendering
+   * duplicated interpretation rules
+
+### Expected result
+
+* Core stays stable and neutral
+* cleanup happens only when justified
+
+---
+
+# Current architectural guardrails
+
+These should remain true during all remaining phases:
+
+* `DialMock.Core` stays free of Blazor and CAD host logic
+* `DialAutoCADPlugin` consumes Core and produces CAD-neutral output
+* `AutoCadMock` calls the plugin, not Core engines directly
+* DXF is an export format, not the internal model
+* AutoCAD SDK types do not enter the neutral CAD model
+* host apps orchestrate; they do not own transformation logic
+
+---
+ 
