@@ -90,17 +90,12 @@ csharp/
 
 ## Build and run in development
 
-Go to the Blazor project and build:
+Go to the Blazor project, build and start the application with hot reload:
 
 ```bash
 cd ~/coding/github/csharp/DialMock
 dotnet restore
 dotnet build
-```
-
-Run with hot reload:
-
-```bash
 dotnet watch
 ```
 

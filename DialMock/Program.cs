@@ -14,7 +14,7 @@ builder.Services.AddScoped<SvgDialRenderer>();
 
 
 // Force loading of static assets in Production
-builder.WebHost.UseStaticWebAssets(); 
+// builder.WebHost.UseStaticWebAssets(); 
  
 
 
