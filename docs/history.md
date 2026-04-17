@@ -95,4 +95,17 @@ rm DialMock.Core/Class1.cs
 
 dotnet remove DialMock.csproj reference DialMock.Core/DialMock.Core.csproj
 
+# version 1.1.x : creatpion CadModel
+
+
+dotnet new classlib -n DialMock.CadModel
+dotnet sln DialMock.slnx add DialMock.CadModel/DialMock.CadModel.csproj
+rm DialMock.CadModel/Class1.cs
+mkdir -p DialMock.CadModel/Geometry
+mkdir -p DialMock.CadModel/Model
+
+rm -f DialMock.CadModel/Class1.cs
+mkdir -p DialMock.CadModel/Geometry
+mkdir -p DialMock.CadModel/Model
+
 ``` 
