@@ -12,6 +12,12 @@ builder.Services.AddScoped<DialRuleEngine>();
 builder.Services.AddScoped<DialEngine>();
 builder.Services.AddScoped<SvgDialRenderer>();
 
+
+// Force loading of static assets in Production
+builder.WebHost.UseStaticWebAssets(); 
+ 
+
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
