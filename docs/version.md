@@ -1,10 +1,14 @@
 
-1.1.5 Phase 5 : Phase 5 — CAD mapping refinement
+
+---
+1.1.6 Phase 6 : introduce DXF export service
+1.1.5 Phase 5 : CAD mapping refinement
 1.1.4 Phase 4 : tighten plugin boundary for external-host usage
 1.1.3 Phase 3 : `AutoCadMock` console host calling the plugin and producing a CAD summary
 1.1.2 phase 2 DialAutoCADPlugin creation
 1.1.1 Phase 1 : add DialMock.CadModel
 1.1.0 Release before starting DialAutoCADPlugin and AutoCadMock developpement
+---
 
 1.0.6 Fix Blazor static asset resolution causing missing blazor.web.js in production
 1.0.5 Add Jenkins and scripts/ci_* to handle Ci/CD and Docker build
