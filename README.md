@@ -26,8 +26,10 @@ The main working prototype currently implemented is:
 
 
 ---
-
 ## Repository Structure
+
+<details>
+<summary>Click to expand directory structure</summary>
 
 ```text
 .
@@ -80,7 +82,7 @@ The main working prototype currently implemented is:
 ├── TODO.md
 ├── VERSION
 └── README.md
-```
+</details> ```
 
 ---
 
