@@ -82,8 +82,8 @@ The main working prototype currently implemented is:
 ├── TODO.md
 ├── VERSION
 └── README.md
-</details> 
 ```
+</details> 
 
 ---
 
