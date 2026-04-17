@@ -53,13 +53,23 @@ public class SvgDialRenderer
     private static string SvgArcPath(Arc2 arc)
     {
         var start = Polar(arc.Center, arc.Radius, arc.StartAngleDeg);
-        var end = Polar(arc.Center, arc.Radius, arc.StartAngleDeg + arc.SweepAngleDeg);
+        var end = Polar(arc.Center, arc.Radius, arc.EndAngleDeg);
 
-        var largeArcFlag = Math.Abs(arc.SweepAngleDeg) > 180 ? 1 : 0;
-        var sweepFlag = arc.SweepAngleDeg >= 0 ? 0 : 1;
+        var ccwDelta = NormalizeAngleDelta(arc.StartAngleDeg, arc.EndAngleDeg);
+        var largeArcFlag = ccwDelta > 180 ? 1 : 0;
+
+        // Because SVG screen coordinates have Y downward, a mathematical CCW arc
+        // is rendered with sweepFlag = 0 after Y inversion.
+        var sweepFlag = 0;
 
         return $"M {SvgX(start.X):0.##} {SvgY(start.Y):0.##} " +
                $"A {arc.Radius:0.##} {arc.Radius:0.##} 0 {largeArcFlag} {sweepFlag} {SvgX(end.X):0.##} {SvgY(end.Y):0.##}";
+    }
+
+    private static double NormalizeAngleDelta(double startAngleDeg, double endAngleDeg)
+    {
+        var delta = (endAngleDeg - startAngleDeg) % 360.0;
+        return delta < 0 ? delta + 360.0 : delta;
     }
 
     private static Point2 Polar(Point2 center, double radius, double angleDegrees)
