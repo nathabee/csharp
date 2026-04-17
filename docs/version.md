@@ -3,14 +3,21 @@
 ---
 
 ```text
-to be done : 
-Phase 9 : interactive AutoCadMock
+to be done :  
 Phase 10 : print/plot framing strategy
 Phase 11 : CI/CD and Docker/Jenkins adaptation
 Phase 12 : documentation and architecture hardening
 Phase 13 : optional PLM-style workflow simulation
 ```
 
+
+---
+change AutocadMock into an interactive Desktop App
+---
+1.2.0 Phase 9 : interactive AutoCadMock conversion AutocadMock from console host to small desktop app
+---
+Add AutoCadMock (console host), DialAutoCADPlugin (DLL producing the DXF) using the same logic and data defined in the Core and modelCAD
+---
 1.1.8 Phase 8 : extended CAD-path test coverage
 1.1.7 Phase 7 : external CAD validation
 1.1.6 Phase 6 : introduce DXF export service
@@ -21,7 +28,8 @@ Phase 13 : optional PLM-style workflow simulation
 1.1.1 Phase 1 : add DialMock.CadModel
 1.1.0 Release before starting DialAutoCADPlugin and AutoCadMock developpement
 ---
-
+## Blazor UI DialMock , web app creating Dials and display them using SVG
+---
 1.0.6 Fix Blazor static asset resolution causing missing blazor.web.js in production
 1.0.5 Add Jenkins and scripts/ci_* to handle Ci/CD and Docker build
 1.0.4 Phase 4B — Add tests and a non tested Jenkins file

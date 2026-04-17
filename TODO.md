@@ -1,48 +1,42 @@
 
 ## Proposed next phases
 
-### Phase 8 — extended CAD-path test coverage
 
-Add tests for the CAD/plugin branch before it grows further.
+## Recommended phase order now
 
-Scope:
+Use this order:
 
-* `DialAutoCADPlugin` builder tests
-* mapper tests
-* DXF exporter tests
-* regression tests for normalized arc storage
-* tests for layer assignment and entity counts
-* tests for invalid request handling
+**Phase 9 — interactive desktop AutoCadMock**
+Build a simple UI host for request entry and DXF generation.
 
-Why first:
+**Phase 10 — CI/CD, Docker, and Jenkins adaptation**
+Support both:
 
-* you already changed the arc convention once
-* DXF export now exists
-* this is the point where regressions start becoming expensive
+* Blazor/SVG host
+* AutoCadMock desktop/mock host artifacts
 
-### Phase 9 — interactive AutoCadMock
+**Phase 11 — print/plot framing strategy**
+Define printable extents or an explicit print frame.
 
-Turn `AutoCadMock` from a fixed console run into an interactive mock host.
+**Phase 12 — optional workflow-style input source**
+Add JSON/file-driven or later PLM-style request injection.
 
-Scope:
 
-* command-line options first
-* optional prompt-based interactive mode second
-* editable inputs for:
 
-  * title
-  * unit
-  * min/max
-  * preview value
-  * major tick count
-* selectable output path
-* selectable sample preset
+ ## Phase 9 — desktop interactive `AutoCadMock`
 
-Why next:
+A small executable host with form input, roughly mirroring the operator experience of a CAD-side tool.
 
-* this gives you a practical test harness
-* it stays close to a host-driven CAD workflow
-* it avoids premature UI complexity
+### Responsibilities
+
+* user edits dial values in the host UI
+* host builds `DialCadRequest`
+* host calls `DialAutoCADPlugin`
+* plugin returns CAD output / writes DXF through exporter
+* host shows status and output path
+ 
+
+ 
 
 ### Phase 10 — print/plot framing strategy
 
@@ -165,72 +159,6 @@ That is simpler than PLM orchestration, but still structurally faithful:
 * output is produced in a reusable form
 
 This is the right learning step before introducing PLM-style workflow complexity.
-
----
-
-## My recommended Phase 8+ order
-
-Use this order:
-
-```text
-Phase 8 — extended CAD-path test coverage
-Phase 9 — interactive AutoCadMock
-Phase 10 — print/plot framing strategy
-Phase 11 — CI/CD and Docker/Jenkins adaptation
-Phase 12 — documentation and architecture hardening
-Phase 13 — optional PLM-style workflow simulation
-```
-
-That order is coherent because:
-
-* correctness first
-* usability second
-* printing behavior third
-* automation fourth
-* enterprise-style orchestration later
-
----
-
-## What Phase 9 interactivity should look like concretely
-
-Start small:
-
-### Step 1
-
-Add CLI flags such as:
-
-```text
---title
---unit
---min
---max
---preview
---ticks
---out
-```
-
-### Step 2
-
-If no flags are provided, fall back to interactive prompts.
-
-### Step 3
-
-Add presets, for example:
-
-```text
---sample default
---sample pressure100
-```
-
-### Step 4
-
-Later, add simple JSON input:
-
-```text
---input dial-request.json
-```
-
-That is the cleanest path because it mimics machine-driven invocation without requiring a real PLM system yet.
 
 ---
  

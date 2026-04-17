@@ -417,3 +417,129 @@ This gives us:
 * a demo host for development and portfolio presentation
 * a clear path toward real AutoCAD integration
  
+
+
+ ## dll CALL
+
+In the industry 2 possible DLL call pattern.
+We eill start here by patternA
+
+
+ ### Pattern A — host-driven interaction
+ 
+ The CAD user is in AutoCAD, triggers a command, enters/selects values, and the DLL generates the result inside the CAD session. This matches Autodesk’s command-based plugin model. ([Autodesk][1])
+ 
+ In your simulation, that would mean:
+ 
+ * `AutoCadMock` has a UI
+ * user edits values there
+ * `AutoCadMock` calls the DLL
+ * DLL produces DXF now, and later maybe native AutoCAD objects
+ 
+ ### Pattern B — workflow / PLM-driven
+ 
+ A PLM or workflow system determines the item, revision, or configuration, and then a CAD/export process is invoked with those values. In Teamcenter-style environments, CAD tools often operate on PLM-managed data and workflows, rather than on manually typed inputs alone. ([Autodesk Forums][2])
+ 
+ In that case the host would:
+ 
+ * receive prepared values from a file, database, or workflow step
+ * call the DLL with those values
+ * generate the result
+ 
+ That is more enterprise-like, but also more complex.
+
+
+ # Short explanation of what we are doing (architecture statement)
+
+You can use this in `architecture.md` or README.
+
+## Host-Driven CAD Plugin Workflow
+
+This project follows a **host-driven interaction model**, similar to how AutoCAD plugins are typically used in industry.
+
+In this model, the user interacts with a host application, and the reusable CAD logic is implemented in a DLL.
+
+### Workflow
+
+1. The user enters dial parameters in a host application.
+2. The host builds a structured request (`DialCadRequest`).
+3. The host calls the reusable plugin DLL (`DialAutoCADPlugin`).
+4. The plugin generates CAD geometry.
+5. The plugin exports the drawing to DXF.
+6. The host displays status information and stores the result.
+
+### Current simulation
+
+Since real AutoCAD integration is not yet implemented, the system uses a mock host:
+
+```text
+User
+  ↓
+AutoCadMock (desktop UI host)
+  ↓
+DialAutoCADPlugin.dll
+  ↓
+DXF output
+```
+
+### Responsibilities
+
+**AutoCadMock (Host)**
+
+* collects user input
+* builds `DialCadRequest`
+* calls the plugin DLL
+* saves output files
+* displays status information
+
+**DialAutoCADPlugin (DLL)**
+
+* validates request data
+* generates CAD geometry
+* maps geometry to CAD entities
+* exports DXF output
+
+**DialMock.Core**
+
+* contains reusable dial logic
+* contains geometry generation rules
+* independent of CAD and UI
+
+---
+
+# What “headless” means
+
+This is important — and often misunderstood.
+
+## Headless = no user interface
+
+A **headless program** runs:
+
+* without a window
+* without user input dialogs
+* without interactive UI
+* usually inside scripts, CI pipelines, or containers
+
+It receives instructions automatically.
+
+---
+
+# Your current interactive mode
+
+This is **not headless**.
+
+Example:
+
+```text
+User opens AutoCadMock.exe
+User enters values in form
+User clicks "Generate"
+DXF is created
+```
+
+That is:
+
+```text
+Interactive Mode
+(UI present)
+```
