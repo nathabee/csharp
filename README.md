@@ -1,31 +1,60 @@
 # C# Technical Prototypes
 
-This repository contains C## technical prototype projects, simulations, and interface experiments.
+This repository contains C# technical prototype projects, simulations, and interface experiments.
 
 The purpose of this workspace is to build reusable technical components with clear architectural separation between:
 
 - domain logic
 - UI rendering
+- CAD integration
 - CAD export pipelines
 - external host simulation
 
-The main working prototype currently implemented is:
+## Layered Architecture
 
-**DialMock** — a configurable dial and gauge simulation system capable of generating:
+The current architectural layers are:
 
-- SVG previews (Blazor UI)
-- neutral CAD geometry
-- host-ready CAD drawing output
+- **DialMock.Core**: business rules and neutral dial geometry
+- **DialMock**: Blazor UI for interactive SVG preview
+- **DialMock.CadModel**: neutral CAD contract
+- **DialAutoCADPlugin**: reusable CAD/plugin integration layer
+- **AutoCadMock**: simulated host that calls the plugin
+- **DXF export service**: plugin-side reusable service
+- **future real AutoCAD adapter**: maps the same CAD model into AutoCAD DB objects inside transactions
+
+The intent is:
+
+- the **Blazor UI** uses Core to preview the dial as SVG
+- the **CAD/plugin path** uses Core to build dial geometry, converts it to a CAD-neutral model, and makes it reusable for:
+  - DXF export
+  - host simulation
+  - future real AutoCAD integration
 
 ---
 
 ## Current Status
 
- WORK IN PROGRESS
+**Work in progress**
 
+Implemented so far:
 
+- `DialMock.Core`
+- `DialMock`
+- `DialMock.CadModel`
+- `DialAutoCADPlugin`
+- `AutoCadMock`
+- plugin request boundary via `DialCadRequest`
+- CAD summary output from the simulated host
+
+Not yet implemented:
+
+- DXF export
+- real AutoCAD adapter
+- native AutoCAD DB object creation
+- CAD-viewer validation roundtrip
 
 ---
+
 ## Repository Structure
 
 <details>
@@ -73,6 +102,9 @@ The main working prototype currently implemented is:
 │   ├── install.md
 │   ├── apache.md
 │   ├── test.md
+│   ├── history.md
+│   ├── version.md
+│   └── project-presentation-for-wordpress.md
 │
 ├── scripts/                   CI helper scripts
 ├── Dockerfile
@@ -82,8 +114,9 @@ The main working prototype currently implemented is:
 ├── TODO.md
 ├── VERSION
 └── README.md
-```
-</details> 
+````
+
+</details>
 
 ---
 
@@ -91,48 +124,55 @@ The main working prototype currently implemented is:
 
 ```mermaid
 graph TD
+    A[Dial specification input<br/>title, unit, range, ticks, preview value]
 
-A[DialCadRequest<br/>title, unit, range, ticks, preview]
+    A --> B[DialMock.Core<br/>shared dial logic]
 
-A --> F[DialAutoCADPlugin<br/>plugin integration layer]
+    B --> C[DialMock<br/>Blazor web app]
+    C --> D[SVG renderer]
+    D --> E[Browser demo]
 
-F --> B[DialMock.Core<br/>shared dial logic]
+    B --> F[DialAutoCADPlugin<br/>reusable CAD/plugin integration layer]
+    F --> G[Neutral CAD entity model<br/>lines, arcs, text, layers, inserts]
 
-B --> G[DialDrawing<br/>neutral geometry]
+    G --> H[AutoCadMock<br/>demo/test host]
+    H --> I[DXF export or mock CAD preview]
+    I --> J[Free CAD viewer]
 
-G --> H[CadDrawing<br/>CAD-neutral model]
+    G --> K[Real AutoCAD host]
+    K --> L[AutoCAD managed API adapter]
+    L --> M[Real AutoCAD DB objects]
 
-H --> I[AutoCadMock<br/>console host]
+    subgraph Shared Logic
+        B
+        F
+        G
+    end
 
-I --> J[CAD summary output]
+    subgraph Demo Hosts
+        C
+        D
+        E
+        H
+        I
+        J
+    end
 
-H --> K[Future DXF exporter]
-
-B --> C[DialMock<br/>Blazor UI]
-
-C --> D[SVG renderer]
-
-D --> E[Browser preview]
-
-subgraph Shared Logic
-    B
-    F
-    G
-    H
-end
-
-subgraph Demo Hosts
-    C
-    D
-    E
-    I
-    J
-end
-
-subgraph Future CAD Environment
-    K
-end
+    subgraph Real CAD Environment
+        K
+        L
+        M
+    end
 ```
+
+### Architectural Notes
+
+* `DialMock.Core` remains renderer-neutral.
+* `DialMock.CadModel` is not a second business layer; it is a CAD-shaped neutral contract.
+* `DialAutoCADPlugin` owns the plugin-facing request contract and the CAD mapping logic.
+* `AutoCadMock` simulates how an external CAD host would call the plugin.
+* DXF export belongs to the reusable CAD/plugin side, not to Core business logic.
+* Future real AutoCAD integration should adapt the same CAD model into native AutoCAD database objects.
 
 ---
 
@@ -204,7 +244,7 @@ CadText
 CadLayer
 ```
 
-Contains **no export logic**.
+Contains **no export logic** and **no business rules**.
 
 ---
 
@@ -214,10 +254,12 @@ Reusable CAD integration layer.
 
 Responsibilities:
 
-* convert request → Core spec
+* accept plugin-facing request input
+* convert request to Core input
 * validate input
-* generate geometry
+* generate geometry via Core
 * map geometry to CAD entities
+* later provide reusable DXF export services
 
 Public API:
 
@@ -227,13 +269,13 @@ CadDrawing Build(DialCadRequest request);
 
 Important:
 
-The plugin owns the **external request contract**:
+The plugin owns the external request contract:
 
 ```text
 DialCadRequest
 ```
 
-This isolates Core from external consumers.
+This isolates Core from external consumers and makes the plugin callable by a simulated or future real CAD host.
 
 ---
 
@@ -243,9 +285,10 @@ Console-based host simulator.
 
 Responsibilities:
 
-* simulate external CAD host
+* simulate an external CAD host
 * invoke plugin services
 * generate diagnostic output
+* later drive DXF export scenarios
 
 Used for:
 
@@ -374,4 +417,5 @@ Phase 8 — extended test coverage
 
 MIT License
 
-(See LICENSE file)
+See `LICENSE`.
+ 
