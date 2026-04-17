@@ -1,6 +1,18 @@
 
 
 ---
+
+```text
+to be done : 
+Phase 9 : interactive AutoCadMock
+Phase 10 : print/plot framing strategy
+Phase 11 : CI/CD and Docker/Jenkins adaptation
+Phase 12 : documentation and architecture hardening
+Phase 13 : optional PLM-style workflow simulation
+```
+
+1.1.8 Phase 8 : extended CAD-path test coverage
+1.1.7 Phase 7 : external CAD validation
 1.1.6 Phase 6 : introduce DXF export service
 1.1.5 Phase 5 : CAD mapping refinement
 1.1.4 Phase 4 : tighten plugin boundary for external-host usage

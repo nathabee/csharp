@@ -5,8 +5,14 @@ namespace DialMock.Core.Engine;
 
 public class DialEngine
 {
-    private const double StartAngle = 160;
-    private const double SweepAngle = -140;
+    // CAD-normal arc definition for the upper half.
+    // Positive angles are measured counter-clockwise from +X.
+    private const double ArcStartAngle = 20;
+    private const double ArcEndAngle = 160;
+
+    // Value progression still runs from left-upper (min) to right-upper (max).
+    private const double ValueMinAngle = ArcEndAngle;
+    private const double ValueMaxAngle = ArcStartAngle;
 
     public DialDrawing BuildDrawing(DialSpec spec)
     {
@@ -21,14 +27,14 @@ public class DialEngine
         drawing.Arcs.Add(new Arc2(
             new Point2(0, 0),
             160,
-            StartAngle,
-            SweepAngle));
+            ArcStartAngle,
+            ArcEndAngle));
 
         for (int i = 0; i <= spec.MajorTickCount; i++)
         {
             double tickPercent = (double)i / spec.MajorTickCount;
             double value = spec.MinValue + tickPercent * range;
-            double angle = StartAngle + tickPercent * SweepAngle;
+            double angle = ValueMinAngle + tickPercent * (ValueMaxAngle - ValueMinAngle);
 
             var outer = Polar(new Point2(0, 0), 142, angle);
             var inner = Polar(new Point2(0, 0), 126, angle);
@@ -39,7 +45,7 @@ public class DialEngine
         }
 
         double needlePercent = (spec.PreviewValue - spec.MinValue) / range;
-        double needleAngle = StartAngle + needlePercent * SweepAngle;
+        double needleAngle = ValueMinAngle + needlePercent * (ValueMaxAngle - ValueMinAngle);
 
         drawing.Lines.Add(new Line2(
             new Point2(0, 0),

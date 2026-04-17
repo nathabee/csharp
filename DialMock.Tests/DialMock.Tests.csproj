@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DialMock.Core\DialMock.Core.csproj" />
+    <ProjectReference Include="..\DialMock.CadModel\DialMock.CadModel.csproj" />
+    <ProjectReference Include="..\DialAutoCADPlugin\DialAutoCADPlugin.csproj" />
   </ItemGroup>
 
 </Project>

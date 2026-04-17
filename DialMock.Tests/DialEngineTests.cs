@@ -24,8 +24,8 @@ public class DialEngineTests
 
         Assert.Single(drawing.Arcs);
         Assert.Equal(160, drawing.Arcs[0].Radius);
-        Assert.Equal(160, drawing.Arcs[0].StartAngleDeg);
-        Assert.Equal(-140, drawing.Arcs[0].SweepAngleDeg);
+        Assert.Equal(20, drawing.Arcs[0].StartAngleDeg);
+        Assert.Equal(160, drawing.Arcs[0].EndAngleDeg);
     }
 
     [Fact]
@@ -44,7 +44,6 @@ public class DialEngineTests
 
         var drawing = engine.BuildDrawing(spec);
 
-        // 11 tick lines (0..10) + 1 needle
         Assert.Equal(12, drawing.Lines.Count);
     }
 

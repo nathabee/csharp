@@ -57,6 +57,27 @@ cd csharp
 ```
 
 
+
+
+### Test View (DXF format)
+
+
+install the viewer on linux
+
+
+```bash
+sudo apt update
+sudo apt install librecad
+```
+
+start in the app :
+
+```bash
+librecad
+```
+
+
+
 ## production :  Run Docker
 
 ### Dockerize the MOCK UI

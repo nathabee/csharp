@@ -114,17 +114,14 @@ public sealed class DxfCadDrawingExporter : ICadDrawingExporter
 
     private static void WriteArc(StringBuilder sb, CadArc arc)
     {
-        var startAngle = NormalizeAngle(arc.StartAngleDeg);
-        var endAngle = NormalizeAngle(arc.StartAngleDeg + arc.SweepAngleDeg);
-
         WritePair(sb, 0, "ARC");
         WritePair(sb, 8, arc.LayerName);
         WritePair(sb, 10, F(arc.Center.X));
         WritePair(sb, 20, F(arc.Center.Y));
         WritePair(sb, 30, F(0));
         WritePair(sb, 40, F(arc.Radius));
-        WritePair(sb, 50, F(startAngle));
-        WritePair(sb, 51, F(endAngle));
+        WritePair(sb, 50, F(NormalizeAngle(arc.StartAngleDeg)));
+        WritePair(sb, 51, F(NormalizeAngle(arc.EndAngleDeg)));
     }
 
     private static void WriteCircle(StringBuilder sb, CadCircle circle)

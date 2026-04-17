@@ -28,7 +28,7 @@ internal sealed class DialDrawingToCadMapper
                 Center = ToCadPoint(arc.Center),
                 Radius = arc.Radius,
                 StartAngleDeg = arc.StartAngleDeg,
-                SweepAngleDeg = arc.SweepAngleDeg,
+                EndAngleDeg = arc.EndAngleDeg,
                 LayerName = DialArcLayer
             });
         }

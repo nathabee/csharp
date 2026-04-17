@@ -404,11 +404,8 @@ version.md             versioning rules
 
 Upcoming phases:
 
-```text
-Phase 5 — CAD mapping refinement
-Phase 6 — DXF export implementation
-Phase 7 — external CAD validation
-Phase 8 — extended test coverage
+```text 
+Phase 8 — extended CAD-path test coverage
 ```
 
 ---

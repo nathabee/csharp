@@ -1,261 +1,236 @@
-# TODO list for 1.1.x
 
+## Proposed next phases
 
-* Phase 1 done: `DialMock.CadModel`
-* Phase 2 done: `DialAutoCADPlugin`
-* Phase 3 done: `AutoCadMock` console host calling the plugin and producing a CAD summary
+### Phase 8 — extended CAD-path test coverage
 
+Add tests for the CAD/plugin branch before it grows further.
 
- 
----
+Scope:
 
+* `DialAutoCADPlugin` builder tests
+* mapper tests
+* DXF exporter tests
+* regression tests for normalized arc storage
+* tests for layer assignment and entity counts
+* tests for invalid request handling
 
+Why first:
 
-## Phase 4 — tighten plugin boundary for external-host usage
+* you already changed the arc convention once
+* DXF export now exists
+* this is the point where regressions start becoming expensive
 
-Goal: make `AutoCadMock` behave more like a real consumer of the plugin DLL, not like an internal app that knows Core input types.
+### Phase 9 — interactive AutoCadMock
 
-### Tasks
+Turn `AutoCadMock` from a fixed console run into an interactive mock host.
 
-1. Introduce a plugin-side request model, for example:
+Scope:
 
-   * `DialAutoCADPlugin/Models/DialCadRequest.cs`
+* command-line options first
+* optional prompt-based interactive mode second
+* editable inputs for:
 
-2. Change the public plugin API from:
+  * title
+  * unit
+  * min/max
+  * preview value
+  * major tick count
+* selectable output path
+* selectable sample preset
 
-   * `CadDrawing Build(DialSpec spec)`
+Why next:
 
-   to:
+* this gives you a practical test harness
+* it stays close to a host-driven CAD workflow
+* it avoids premature UI complexity
 
-   * `CadDrawing Build(DialCadRequest request)`
+### Phase 10 — print/plot framing strategy
 
-3. Map `DialCadRequest` internally to `DialSpec` inside `DialAutoCADPlugin`
+Decide how printable area should be controlled for CAD output.
 
-4. Remove the direct `DialMock.Core` reference from `AutoCadMock`
+Scope:
 
-5. Update `AutoCadMock` to construct `DialCadRequest` instead of `DialSpec`
+* extents-only workflow first
+* optional explicit print frame/page box later
+* document whether plotting should use:
 
-### Expected result
+  * `Extents`
+  * `Window`
+  * or a future layout/frame concept
 
-* `AutoCadMock` references only:
+This matters because AutoCAD-style plotting is based on plot area settings like `Extents`, `Window`, and `Layout`, not just raw geometry. ([Autodesk Help][2])
 
-  * `DialAutoCADPlugin`
-  * `DialMock.CadModel`
-* `AutoCadMock` no longer knows Core input types
-* plugin boundary becomes closer to a real external DLL contract
+### Phase 11 — CI/CD and packaging update
 
----
+Adapt Jenkins, scripts, and Docker so both hosts are buildable and testable.
 
-## Phase 5 — improve CAD mapping semantics
+Scope:
 
-Goal: make CAD output more explicit and more useful for downstream CAD/export workflows.
+* build `DialMock`
+* build `AutoCadMock`
+* run tests for all projects
+* publish Blazor app
+* publish AutoCadMock artifacts
+* archive generated DXF output as build artifact in CI if useful
 
-### Tasks
+This should come after Phases 8–10 so automation reflects a stable workflow, not a moving target.
 
-1. Keep existing mappings:
+### Phase 12 — documentation and architecture hardening
 
-   * `Line2 -> CadLine`
-   * `Arc2 -> CadArc`
-   * `Text2 -> CadText`
+Update README, docs, and dev guide for the new CAD path.
 
-2. Add plugin-owned CAD extras deliberately and explicitly:
+Scope:
 
-   * center circle
-   * optional title text
-   * optional unit text
-
-3. Stop relying only on “last line = needle” once a cleaner distinction exists
-
-   * either by explicit mapping convention
-   * or by richer internal classification before mapping
-
-4. Expand semantic layers as needed:
-
-   * `DIAL_ARC`
-   * `DIAL_TICKS`
-   * `DIAL_LABELS`
-   * `DIAL_NEEDLE`
-   * `DIAL_CENTER`
-   * `DIAL_META`
-
-5. Review text defaults for CAD output:
-
-   * text height
-   * rotation handling
-   * alignment strategy if needed later
-
-### Expected result
-
-* CAD drawing is more readable in downstream tools
-* layer semantics are stable
-* CAD output is no longer just a raw mirror of Core primitives
+* interaction model
+* DXF export responsibility
+* print strategy
+* host vs plugin responsibilities
+* how to run SVG path and CAD path locally
 
 ---
 
-## Phase 6 — introduce DXF export service
+## How the interactivity should be managed
 
-Goal: export `CadDrawing` to DXF through a reusable service, not ad hoc host logic.
+For **this version**, do **not** try to simulate full PLM-driven enterprise behavior yet. That would add too much complexity too early.
 
-### Tasks
+The right staged approach is:
 
-1. Add an export abstraction, for example:
+### Version now
 
-   * `ICadDrawingExporter`
+`AutoCadMock` acts like a simplified CAD host that:
 
-2. Decide export placement:
+* receives or asks for dial parameters
+* calls the plugin DLL
+* writes DXF
+* optionally prints a summary
 
-   * either in `DialAutoCADPlugin`
-   * or in a dedicated project such as `DialMock.Dxf`
+That is enough to test the integration path realistically.
 
-3. Implement first DXF writer for:
+### Later version
 
-   * layers
-   * lines
-   * arcs
-   * text
-   * circles if already added
+You can add an “industry-like” orchestration model where:
 
-4. Keep DXF as an export format only
+* a PLM or workflow system provides context
+* a selected item/version drives the dial parameters
+* the CAD host opens the right object and invokes the plugin
 
-   * internal abstraction remains `CadDrawing`
-
-5. Make export callable from `AutoCadMock` through the plugin/exporter contract
-
-### Expected result
-
-* `CadDrawing` can be exported to a real `.dxf` file
-* exporter logic is reusable
-* host does not contain DXF transformation rules
+That matches real PLM/CAD integration better. Siemens materials on Teamcenter’s CAD integrations describe CAD users accessing managed design information through the integrated CAD environment, while Teamcenter also acts as a backbone for workflows and shared product data. ([plm.automation.siemens.com][3])
 
 ---
 
-## Phase 7 — extend AutoCadMock from summary host to export host
+## Industry-like interaction: who provides the data?
 
-Goal: turn `AutoCadMock` into a practical verification host for the plugin pipeline.
+In real industry setups, there are usually two broad patterns.
 
-### Tasks
+### Pattern A — CAD user selects something inside the CAD-integrated environment
 
-1. Keep the existing summary output
+Typical flow:
 
-2. Add DXF file generation to disk
+* user opens/selects a managed item/drawing/configuration
+* plugin/adapter reads the relevant attributes
+* CAD entities are generated in the CAD session
 
-3. Add output folder conventions
+This is common in CAD integrations, where the user works inside the CAD application but against PLM-managed data. Siemens’ Teamcenter integration material for AutoCAD emphasizes searching, accessing, controlling, and managing design information from within the AutoCAD environment. ([media.plm.automation.siemens.com][4])
 
-4. Add simple command-line options later if useful, for example:
+### Pattern B — PLM/workflow starts a controlled process
 
-   * output path
-   * sample selection
-   * alternate request values
+Typical flow:
 
-5. Keep `AutoCadMock` focused on orchestration:
+* PLM workflow identifies the target item/revision/configuration
+* data is prepared centrally
+* CAD or an export service is invoked
+* output is generated and stored back into the managed process
 
-   * build request
-   * call plugin
-   * call exporter
-   * save file
-   * print diagnostics
-
-### Expected result
-
-* `AutoCadMock` becomes the practical end-to-end mock CAD host
-* it remains a host, not a second business layer
+This is also realistic, especially for controlled release/manufacturing flows. Teamcenter positions itself as a backbone for shared information and workflows, which fits this orchestration model. ([Siemens Blog Network][5])
 
 ---
 
-## Phase 8 — validation in external CAD viewer
+## What is the right approximation for your project now?
 
-Goal: verify that exported CAD output is geometrically and semantically correct.
+For this version, the best approximation is:
 
-### Tasks
+### AutoCadMock should behave like a CAD host with local user-driven input
 
-1. Open DXF in a free CAD viewer
+Meaning:
 
-2. Verify:
+* it prompts the user or accepts CLI args
+* it builds a `DialCadRequest`
+* it calls the plugin
+* it produces DXF
 
-   * arc orientation
-   * text placement
-   * label spacing
-   * needle direction
-   * scale consistency
-   * layer separation
+That is simpler than PLM orchestration, but still structurally faithful:
 
-3. Compare visual result against the Blazor SVG preview
+* host supplies request context
+* plugin does generation
+* output is produced in a reusable form
 
-4. Note mismatches between SVG and CAD expectations
-
-5. Fix mapping/export conventions as needed
-
-### Expected result
-
-* CAD output is visually trustworthy
-* geometry is validated outside the codebase
-* SVG and CAD paths are known to be aligned or intentionally different
+This is the right learning step before introducing PLM-style workflow complexity.
 
 ---
 
-## Phase 9 — add CAD-path tests
+## My recommended Phase 8+ order
 
-Goal: protect the new branch with tests before the exporter and mapping grow further.
+Use this order:
 
-### Tasks
+```text
+Phase 8 — extended CAD-path test coverage
+Phase 9 — interactive AutoCadMock
+Phase 10 — print/plot framing strategy
+Phase 11 — CI/CD and Docker/Jenkins adaptation
+Phase 12 — documentation and architecture hardening
+Phase 13 — optional PLM-style workflow simulation
+```
 
-1. Add tests for `DialAutoCADPlugin`
+That order is coherent because:
 
-2. Verify:
-
-   * valid request produces `CadDrawing`
-   * invalid request fails predictably
-   * expected entity counts
-   * expected layer assignment
-   * needle entity classification
-   * center/meta entities when introduced
-
-3. Add exporter tests once DXF is implemented:
-
-   * expected sections exist
-   * expected entities are written
-   * output is non-empty and structurally valid
-
-### Expected result
-
-* CAD path becomes regression-safe
-* future refactors are less risky
+* correctness first
+* usability second
+* printing behavior third
+* automation fourth
+* enterprise-style orchestration later
 
 ---
 
-## Phase 10 — decide how far Core cleanup should go
+## What Phase 9 interactivity should look like concretely
 
-Goal: review remaining architectural fuzziness without destabilizing the existing working app.
+Start small:
 
-### Tasks
+### Step 1
 
-1. Reassess whether `DialRenderData` should remain in Core
-2. Keep Core renderer-neutral
-3. Avoid pulling CAD concerns back into Core
-4. Decide whether current `DialDrawing` shape remains sufficient
-5. Only refactor Core if there is clear pressure from:
+Add CLI flags such as:
 
-   * CAD mapping
-   * SVG rendering
-   * duplicated interpretation rules
+```text
+--title
+--unit
+--min
+--max
+--preview
+--ticks
+--out
+```
 
-### Expected result
+### Step 2
 
-* Core stays stable and neutral
-* cleanup happens only when justified
+If no flags are provided, fall back to interactive prompts.
 
----
+### Step 3
 
-# Current architectural guardrails
+Add presets, for example:
 
-These should remain true during all remaining phases:
+```text
+--sample default
+--sample pressure100
+```
 
-* `DialMock.Core` stays free of Blazor and CAD host logic
-* `DialAutoCADPlugin` consumes Core and produces CAD-neutral output
-* `AutoCadMock` calls the plugin, not Core engines directly
-* DXF is an export format, not the internal model
-* AutoCAD SDK types do not enter the neutral CAD model
-* host apps orchestrate; they do not own transformation logic
+### Step 4
+
+Later, add simple JSON input:
+
+```text
+--input dial-request.json
+```
+
+That is the cleanest path because it mimics machine-driven invocation without requiring a real PLM system yet.
 
 ---
  
