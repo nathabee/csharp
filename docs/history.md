@@ -97,7 +97,7 @@ dotnet remove DialMock.csproj reference DialMock.Core/DialMock.Core.csproj
 
 # version 1.1.x : creatpion CadModel
 
-
+# phase1
 dotnet new classlib -n DialMock.CadModel
 dotnet sln DialMock.slnx add DialMock.CadModel/DialMock.CadModel.csproj
 rm DialMock.CadModel/Class1.cs
@@ -107,5 +107,19 @@ mkdir -p DialMock.CadModel/Model
 rm -f DialMock.CadModel/Class1.cs
 mkdir -p DialMock.CadModel/Geometry
 mkdir -p DialMock.CadModel/Model
+
+
+# add the files in CadModel
+
+# phase 2 DialAutoCADPlugin creation
+
+dotnet new classlib -n DialAutoCADPlugin
+dotnet sln DialMock.slnx add DialAutoCADPlugin/DialAutoCADPlugin.csproj
+dotnet add DialAutoCADPlugin/DialAutoCADPlugin.csproj reference DialMock.Core/DialMock.Core.csproj
+dotnet add DialAutoCADPlugin/DialAutoCADPlugin.csproj reference DialMock.CadModel/DialMock.CadModel.csproj
+rm DialAutoCADPlugin/Class1.cs
+mkdir -p DialAutoCADPlugin/Abstractions
+mkdir -p DialAutoCADPlugin/Mapping
+mkdir -p DialAutoCADPlugin/Services
 
 ``` 

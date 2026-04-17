@@ -1,6 +1,7 @@
 
 
-1.1.1 Pase i : add DialMock.CadModel
+1.1.2 phase 2 DialAutoCADPlugin creation
+1.1.1 Phase 1 : add DialMock.CadModel
 1.1.0 Release before starting DialAutoCADPlugin and AutoCadMock developpement
 
 1.0.6 Fix Blazor static asset resolution causing missing blazor.web.js in production
