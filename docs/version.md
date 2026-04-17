@@ -1,5 +1,5 @@
 
-
+1.1.5 Phase 5 : Phase 5 — CAD mapping refinement
 1.1.4 Phase 4 : tighten plugin boundary for external-host usage
 1.1.3 Phase 3 : `AutoCadMock` console host calling the plugin and producing a CAD summary
 1.1.2 phase 2 DialAutoCADPlugin creation

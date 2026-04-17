@@ -43,7 +43,7 @@ public sealed class DialCadBuilder : IDialCadBuilder
         }
 
         var drawing = _dialEngine.BuildDrawing(spec);
-        return _mapper.Map(drawing);
+        return _mapper.Map(drawing, request);
     }
 
     private static DialSpec ToDialSpec(DialCadRequest request)
