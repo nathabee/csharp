@@ -1,4 +1,8 @@
 
+
+
+1.1.0 Release before starting DialAutoCADPlugin and AutoCadMock developpement
+
 1.0.6 Fix Blazor static asset resolution causing missing blazor.web.js in production
 1.0.5 Add Jenkins and scripts/ci_* to handle Ci/CD and Docker build
 1.0.4 Phase 4B — Add tests and a non tested Jenkins file

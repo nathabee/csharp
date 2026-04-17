@@ -1,405 +1,419 @@
-Yes — this is a good draft, but it’s too verbose and slightly inconsistent with what the code actually is now.
-Below is a **cleaned, compact, accurate version** that matches your current implementation and future direction.
+# Dial Architecture
 
-You can paste this directly into `docs/architecture.md`.
+## Goal
 
----
+Build a reusable dial engine that can serve multiple hosts:
 
-# DialMock Architecture
+- `DialMock` for fast browser preview with SVG
+- `AutoCadMock` for demo/testing of CAD-oriented output
+- `DialAutoCADPlugin` for real AutoCAD integration
 
-## Objective
-
-Build a **renderer-neutral dial engine** reusable across:
-
-* Blazor preview UI
-* AutoCAD plugin (future)
-* Other renderers (DXF, PDF, etc.)
-
-The Core must be independent of any UI or CAD platform.
+The shared dial logic must stay independent from UI and from AutoCAD-specific APIs.
 
 ---
 
-# Architecture Evolution
+## Core Idea
 
-```text
-Phase 1 — Extract Core Models
-Phase 2 — Introduce Geometry Types
-Phase 3 — Move Geometry to Core Engine
-Phase 4 — Extract Renderer (next)
-Phase 5 — Add Tests
-Phase 6 — AutoCAD Adapter
-```
+`DialAutoCADPlugin` is the reusable CAD/plugin integration layer.
 
-Current status:
+It consumes the shared dial logic from `DialMock.Core` and exposes CAD-oriented behavior that a host can call.
 
-```text
-Phase 1 ✔
-Phase 2 ✔
-Phase 3 ✔
-Phase 4 → next
-```
+`AutoCadMock` is a demo/test host that exercises the same plugin layer outside the real AutoCAD environment.
+
+This allows us to validate plugin behavior without requiring AutoCAD for every test, while keeping the integration logic reusable for a real AutoCAD host.
 
 ---
 
-# Target Architecture
+## Architecture Overview
 
-```text
-Dial Engine (Core)
-        ↓
-Renderer Adapter Layer
-        ↓
-Concrete Renderers
-   - SVG (Blazor preview)
-   - AutoCAD plugin
-   - DXF / PDF (future)
-```
+```mermaid
+graph TD
+    A[Dial specification input<br/>title, unit, range, ticks, preview value]
 
-Core must not depend on:
+    A --> B[DialMock.Core<br/>shared dial logic]
+
+    B --> C[DialMock<br/>Blazor web app]
+    C --> D[SVG renderer]
+    D --> E[Browser demo]
+
+    B --> F[DialAutoCADPlugin<br/>reusable CAD/plugin integration layer]
+    F --> G[Neutral CAD entity model<br/>lines, arcs, text, layers, inserts]
+
+    G --> H[AutoCadMock<br/>demo/test host]
+    H --> I[DXF export or mock CAD preview]
+    I --> J[Free CAD viewer]
+
+    G --> K[Real AutoCAD host]
+    K --> L[AutoCAD managed API adapter]
+    L --> M[Real AutoCAD DB objects]
+
+    subgraph Shared Logic
+        B
+        F
+        G
+    end
+
+    subgraph Demo Hosts
+        C
+        D
+        E
+        H
+        I
+        J
+    end
+
+    subgraph Real CAD Environment
+        K
+        L
+        M
+    end
+````
+
+---
+
+## Main Projects
+
+### `DialMock.Core`
+
+Reusable shared logic.
+
+Contains:
+
+* dial rules
+* validation
+* scale calculations
+* domain model
+* geometry generation
+* neutral CAD/entity model
+
+This project must not depend on:
 
 * Blazor
 * SVG
 * AutoCAD
 * HTML
-* UI logic
-
-Core contains only:
-
-* dial rules
-* validation
-* geometry
-* drawing construction
+* UI framework code
 
 ---
 
-# Repository Structure
+### `DialMock`
 
-```text
-csharp/
-│
-├── DialMock.slnx
-│
-├── DialMock/                → Blazor UI (preview tool)
-│
-├── DialMock.Core/           → reusable dial engine
-│
-├── DialMock.Render.Svg/     → SVG renderer (planned)
-│
-├── DialMock.AutoCAD/        → AutoCAD plugin (future)
-│
-└── DialMock.Tests/          → unit tests (future)
+Blazor web application for preview and quick simulation.
+
+Responsibilities:
+
+* provide browser UI
+* let the user enter dial parameters
+* call shared logic from `DialMock.Core`
+* render SVG preview for fast visual feedback
+
+This is a standalone web application.
+
+It is started with:
+
+```bash
+dotnet DialMock.dll
 ```
 
+or inside Docker through:
+
+```dockerfile
+ENTRYPOINT ["dotnet", "DialMock.dll"]
+```
+
+So `DialMock.dll` is an ASP.NET Core application assembly, not a plugin DLL.
+
 ---
 
-# Core Architecture Layers
+### `DialAutoCADPlugin`
+
+Reusable AutoCAD-oriented integration layer.
+
+Responsibilities:
+
+* consume the dial logic from `DialMock.Core`
+* expose plugin-oriented services and integration points
+* build CAD-oriented entities or instructions
+* later translate them into real AutoCAD database objects through the AutoCAD API
+
+This project should ideally contain:
+
+* no web UI
+* no demo-only concerns
+* no Blazor code
+
+It should remain reusable by both:
+
+* `AutoCadMock`
+* real AutoCAD
+
+---
+
+### `AutoCadMock`
+
+Demo/test host for the plugin layer.
+
+Responsibilities:
+
+* provide a user-facing test environment
+* call `DialAutoCADPlugin`
+* simulate host behavior outside real AutoCAD
+* display or export the generated CAD-oriented result
+
+Possible outputs:
+
+* DXF export
+* structured CAD description
+* mock CAD preview
+
+`AutoCadMock` is not real AutoCAD. It is a host used to test the same plugin layer in a controlled environment.
+
+---
+
+## DLL Types
+
+### 1. Class Library DLL
+
+Example:
+
+* shared logic library
+* plugin library
+* helper library
+
+This is not launched directly by the user.
+
+It is loaded by another process or referenced by another application.
+
+Typical examples:
+
+* AutoCAD loads `DialAutoCADPlugin.dll`
+* `DialMock` references `DialMock.Core.dll`
+* `AutoCadMock` references `DialAutoCADPlugin.dll`
+
+---
+
+### 2. Application DLL
+
+Example:
+
+* ASP.NET Core web app
+* console app
+
+This is started by the .NET host.
+
+Typical example:
+
+```bash
+dotnet DialMock.dll
+```
+
+So:
+
+* `DialMock.dll` is an application DLL
+* `DialAutoCADPlugin.dll` is a class library DLL
+
+They are both `.dll` files, but they play very different roles.
+
+---
+
+## Runtime Model
+
+### `DialMock`
+
+Host process:
+
+* `.NET runtime`
+* `ASP.NET Core`
+* `Kestrel`
+
+Flow:
+
+* Docker starts the .NET runtime
+* the runtime loads `DialMock.dll`
+* `Program.cs` configures the web host
+* Kestrel serves routes, Razor components, static assets, and interactive Blazor UI
+
+---
+
+### `DialAutoCADPlugin`
+
+Host process:
+
+* real AutoCAD
+
+Flow:
+
+* AutoCAD loads the plugin DLL
+* AutoCAD calls plugin entry points through its managed API
+* the plugin uses shared logic from `DialMock.Core`
+* the plugin creates CAD-oriented output and eventually real AutoCAD entities
+
+This is not started with `dotnet DialAutoCADPlugin.dll`.
+
+It is loaded by AutoCAD.
+
+---
+
+### `AutoCadMock`
+
+Host process:
+
+* its own host application
+
+Flow:
+
+* the mock application starts normally
+* it references `DialAutoCADPlugin`
+* it calls the same plugin layer that real AutoCAD would use
+* it displays or exports the resulting CAD-oriented output
+
+So you run:
+
+```bash
+dotnet AutoCadMock.dll
+```
+
+not:
+
+```bash
+dotnet AutoCadMock.dll DialAutoCADPlugin.dll
+```
+
+The plugin DLL is loaded automatically as a dependency.
+
+---
+
+## Dependency Direction
+
+The intended dependency chain is:
 
 ```text
 DialMock.Core
-├── Engine
-│   └── DialEngine.cs
-│
-├── Geometry
-│   ├── Point2.cs
-│   ├── Line2.cs
-│   ├── Arc2.cs
-│   ├── Text2.cs
-│   └── DialDrawing.cs
-│
-├── Models
-│   ├── DialSpec.cs
-│   ├── ValidationResult.cs
-│   └── DialRenderData.cs
-│
-└── Services
-    └── DialRuleEngine.cs
+    ↑
+DialAutoCADPlugin
+    ↑
+AutoCadMock
 ```
+
+and separately:
+
+```text
+DialMock.Core
+    ↑
+DialMock
+```
+
+For real integration:
+
+```text
+DialMock.Core
+    ↑
+DialAutoCADPlugin
+    ↑
+Real AutoCAD host
+```
+
+Important rule:
+
+* `AutoCadMock` must call `DialAutoCADPlugin`
+* it must not bypass the plugin and go directly to `DialMock.Core` for CAD generation
+
+That way the mock host tests the same plugin layer that the real AutoCAD host will use.
 
 ---
 
-# Layer Responsibilities
+## Neutral CAD Entity Model
 
-## Models
+Inside the shared/plugin architecture, we use a neutral CAD-oriented model.
 
-Contain dial input and validation data.
+Examples:
 
-```text
-DialSpec
-ValidationResult
-DialRenderData (temporary UI support)
-```
+* `CadLine`
+* `CadArc`
+* `CadCircle`
+* `CadText`
+* `CadLayer`
+* `CadInsert`
 
-Used by:
+This is not yet a real AutoCAD runtime object.
 
-```text
-RuleEngine
-DialEngine
-UI
-```
+It is our own representation of CAD geometry and structure.
 
----
+Why this matters:
 
-## Geometry
+* `DialMock` can render the shared logic as SVG
+* `AutoCadMock` can display or export CAD-oriented output
+* `DialAutoCADPlugin` can translate the same model into real AutoCAD entities
 
-Pure geometry definitions.
-
-No logic.
-No dependencies.
-
-```text
-Point2
-Line2
-Arc2
-Text2
-DialDrawing
-```
-
-These represent a renderer-neutral drawing.
-
-Used by:
-
-```text
-DialEngine
-Renderers
-```
-
-Never used directly by UI logic.
+This is stronger than pretending the mock host is real AutoCAD.
 
 ---
 
-## Engine
+## Output Strategy
 
-Builds the dial geometry.
+### Browser Preview
 
-```text
-DialEngine
-```
+`DialMock` renders:
 
-Responsibilities:
+* SVG
 
-* calculate angles
-* compute positions
-* generate ticks
-* generate needle
-* generate arc
-* generate labels
-* return `DialDrawing`
+Purpose:
 
-Core geometry logic lives **only here**.
+* fast visual feedback
+* easy demo access from a browser
+* simple preview of dial rules and rendering behavior
 
 ---
 
-## Services
+### CAD-Oriented Demo Output
 
-Contain validation and non-geometry rules.
+`AutoCadMock` should preferably export:
 
-```text
-DialRuleEngine
-```
+* DXF
 
-Responsibilities:
+Why DXF:
 
-* validate dial input
-* prepare display metadata
-* enforce domain rules
+* suitable for 2D dial geometry
+* viewable in free tools
+* useful as an exchange/demo format
+* much easier to expose on a project page than a proprietary CAD runtime object
 
----
+So the likely demo chain is:
 
-# UI Responsibilities (Blazor)
-
-The UI must not compute dial geometry.
-
-The UI only:
-
-```csharp
-_validation = RuleEngine.Validate(_spec);
-
-_renderData =
-    RuleEngine.BuildRenderData(_spec);
-
-_drawing =
-    Engine.BuildDrawing(_spec);
-```
-
-Then renders:
-
-```text
-DialDrawing → SVG
-```
-
-UI performs only coordinate adaptation:
-
-```text
-Y-up → Y-down conversion
-```
-
-No dial math.
+* `DialMock` -> quick SVG simulation
+* `AutoCadMock` -> DXF-oriented demo/export
+* free viewer -> inspect the exported result
 
 ---
 
-# Coordinate System Convention
+### Real AutoCAD Output
 
-Used by **Core only**.
+`DialAutoCADPlugin` should later create:
 
-```text
-Origin: (0,0) = dial center
-X axis: right
-Y axis: up
-Angles: degrees
-0°: positive X
-Positive rotation: CCW
-```
+* real AutoCAD database objects
+* lines
+* arcs
+* text
+* layers
+* inserts / blocks
 
-This matches:
-
-* mathematics
-* AutoCAD
-* industrial CAD systems
-
-SVG adapts to this system.
+through the AutoCAD managed API.
 
 ---
 
-# Renderer Concept
+## Summary
 
-Renderers translate geometry into output formats.
+Current understanding:
 
-Core never renders.
+* `DialMock.dll` is a standalone ASP.NET Core web application assembly
+* `DialAutoCADPlugin.dll` is a class library intended to be loaded by AutoCAD
+* `AutoCadMock` is a separate host application that exercises the same plugin layer outside real AutoCAD
+* `DialMock.Core` remains the shared reusable logic base
 
----
+This gives us:
 
-## SVG Renderer (next phase)
-
-```text
-DialMock.Render.Svg
-└── SvgDialRenderer.cs
-```
-
-Responsibilities:
-
-* convert geometry to SVG
-* handle coordinate inversion
-* create SVG elements
-
-Example:
-
-```csharp
-public class SvgDialRenderer
-{
-    public string Render(DialDrawing drawing);
-}
-```
-
----
-
-## AutoCAD Renderer (future)
-
-```text
-DialMock.AutoCAD
-└── AutoCadDialRenderer.cs
-```
-
-Responsibilities:
-
-* convert geometry to AutoCAD entities
-* write into CAD database
-
-Example:
-
-```csharp
-public class AutoCadDialRenderer
-{
-    public void Render(
-        DialDrawing drawing,
-        Database db);
-}
-```
-
----
-
-# Current System Flow
-
-```text
-User Input
-     ↓
-DialSpec
-     ↓
-DialRuleEngine
-     ↓
-ValidationResult
-     ↓
-DialEngine
-     ↓
-DialDrawing
-     ↓
-Blazor SVG rendering
-```
-
-Later:
-
-```text
-DialDrawing
-     ↓
-AutoCAD Renderer
-     ↓
-CAD Entities
-```
-
-Same drawing.
-
-Different renderer.
-
----
-
-# Key Design Principles
-
-## Renderer Neutrality
-
-Core produces geometry, not graphics.
-
-Never:
-
-```text
-SVG in Core
-AutoCAD in Core
-UI logic in Core
-```
-
-Always:
-
-```text
-Geometry → Renderer
-```
-
----
-
-## Single Source of Geometry
-
-All dial math lives in:
-
-```text
-DialEngine.cs
-```
-
-Never in:
-
-```text
-UI
-Renderer
-Plugin
-```
-
----
-
-## Clear Dependency Direction
-
-```text
-Geometry → used by Engine
-Engine → used by UI and CAD
-UI → never used by Core
-```
-
-Dependencies flow upward only.
-
-Never downward.
-
----
+* a reusable architecture
+* a realistic plugin-oriented design
+* a demo host for development and portfolio presentation
+* a clear path toward real AutoCAD integration
+ 
