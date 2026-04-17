@@ -1,5 +1,6 @@
 using DialAutoCADPlugin.Abstractions;
 using DialAutoCADPlugin.Mapping;
+using DialAutoCADPlugin.Models;
 using DialMock.CadModel.Model;
 using DialMock.Core.Engine;
 using DialMock.Core.Models;
@@ -28,18 +29,33 @@ public sealed class DialCadBuilder : IDialCadBuilder
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
     }
 
-    public CadDrawing Build(DialSpec spec)
+    public CadDrawing Build(DialCadRequest request)
     {
-        ArgumentNullException.ThrowIfNull(spec);
+        ArgumentNullException.ThrowIfNull(request);
+
+        var spec = ToDialSpec(request);
 
         var validation = _ruleEngine.Validate(spec);
         if (!validation.IsValid)
         {
             throw new InvalidOperationException(
-                $"DialSpec is invalid: {string.Join(" | ", validation.Errors)}");
+                $"DialCadRequest is invalid: {string.Join(" | ", validation.Errors)}");
         }
 
         var drawing = _dialEngine.BuildDrawing(spec);
         return _mapper.Map(drawing);
+    }
+
+    private static DialSpec ToDialSpec(DialCadRequest request)
+    {
+        return new DialSpec
+        {
+            Title = request.Title,
+            Unit = request.Unit,
+            MinValue = request.MinValue,
+            MaxValue = request.MaxValue,
+            PreviewValue = request.PreviewValue,
+            MajorTickCount = request.MajorTickCount
+        };
     }
 }

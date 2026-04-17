@@ -3,7 +3,6 @@
   <ItemGroup>
     <ProjectReference Include="..\DialAutoCADPlugin\DialAutoCADPlugin.csproj" />
     <ProjectReference Include="..\DialMock.CadModel\DialMock.CadModel.csproj" />
-    <ProjectReference Include="..\DialMock.Core\DialMock.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
