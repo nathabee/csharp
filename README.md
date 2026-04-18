@@ -18,7 +18,7 @@ The current architectural layers are:
 - **DialMock**: Blazor UI for interactive SVG preview
 - **DialMock.CadModel**: neutral CAD contract
 - **DialAutoCADPlugin**: reusable CAD/plugin integration layer
-- **AutoCadMock**: simulated host that calls the plugin
+- **AutoCadMock**: interactive desktop host that calls the plugin
 - **DXF export service**: plugin-side reusable service
 - **future real AutoCAD adapter**: maps the same CAD model into AutoCAD DB objects inside transactions
 
@@ -27,7 +27,7 @@ The intent is:
 - the **Blazor UI** uses Core to preview the dial as SVG
 - the **CAD/plugin path** uses Core to build dial geometry, converts it to a CAD-neutral model, and makes it reusable for:
   - DXF export
-  - host simulation
+  - desktop host simulation
   - future real AutoCAD integration
 
 ---
@@ -44,14 +44,20 @@ Implemented so far:
 - `DialAutoCADPlugin`
 - `AutoCadMock`
 - plugin request boundary via `DialCadRequest`
-- CAD summary output from the simulated host
+- CAD summary output
+- DXF export
+- normalized CAD-style arc model (`StartAngleDeg`, `EndAngleDeg`)
+- interactive desktop host UI for `AutoCadMock`
+- CAD viewer validation in LibreCAD
+- extended CAD-path test coverage
 
 Not yet implemented:
 
-- DXF export
 - real AutoCAD adapter
 - native AutoCAD DB object creation
-- CAD-viewer validation roundtrip
+- print/plot framing strategy
+- CI/CD packaging split between web host and desktop host
+- optional headless execution mode for CI/workflow use
 
 ---
 
@@ -62,13 +68,21 @@ Not yet implemented:
 
 ```text
 .
-├── AutoCadMock/               Console host simulator
+├── AutoCadMock/               Interactive desktop CAD host
+│   ├── Assets/
 │   ├── Diagnostics/
+│   ├── Models/
+│   ├── ViewModels/
+│   ├── Views/
+│   ├── App.axaml
+│   ├── App.axaml.cs
 │   ├── Program.cs
+│   ├── ViewLocator.cs
 │   └── AutoCadMock.csproj
 │
 ├── DialAutoCADPlugin/         CAD integration layer
 │   ├── Abstractions/
+│   ├── Export/
 │   ├── Mapping/
 │   ├── Models/
 │   ├── Services/
@@ -113,6 +127,7 @@ Not yet implemented:
 ├── DialMock.slnx
 ├── TODO.md
 ├── VERSION
+├── LICENSE
 └── README.md
 ````
 
@@ -133,13 +148,13 @@ graph TD
     D --> E[Browser demo]
 
     B --> F[DialAutoCADPlugin<br/>reusable CAD/plugin integration layer]
-    F --> G[Neutral CAD entity model<br/>lines, arcs, text, layers, inserts]
+    F --> G[Neutral CAD entity model<br/>lines, arcs, text, layers, circles]
 
-    G --> H[AutoCadMock<br/>demo/test host]
-    H --> I[DXF export or mock CAD preview]
-    I --> J[Free CAD viewer]
+    G --> H[AutoCadMock<br/>interactive desktop host]
+    H --> I[DXF export]
+    I --> J[LibreCAD / CAD viewer]
 
-    G --> K[Real AutoCAD host]
+    G --> K[Future real AutoCAD host]
     K --> L[AutoCAD managed API adapter]
     L --> M[Real AutoCAD DB objects]
 
@@ -169,9 +184,10 @@ graph TD
 
 * `DialMock.Core` remains renderer-neutral.
 * `DialMock.CadModel` is not a second business layer; it is a CAD-shaped neutral contract.
-* `DialAutoCADPlugin` owns the plugin-facing request contract and the CAD mapping logic.
+* `DialAutoCADPlugin` owns the plugin-facing request contract and the CAD mapping/export logic.
 * `AutoCadMock` simulates how an external CAD host would call the plugin.
 * DXF export belongs to the reusable CAD/plugin side, not to Core business logic.
+* The current CAD path uses a normalized CAD-style arc convention.
 * Future real AutoCAD integration should adapt the same CAD model into native AutoCAD database objects.
 
 ---
@@ -197,6 +213,13 @@ Line2
 Arc2
 Text2
 Point2
+```
+
+`Arc2` uses a normalized CAD-style representation with:
+
+```text
+StartAngleDeg
+EndAngleDeg
 ```
 
 Core contains **no UI logic** and **no CAD export logic**.
@@ -259,7 +282,7 @@ Responsibilities:
 * validate input
 * generate geometry via Core
 * map geometry to CAD entities
-* later provide reusable DXF export services
+* export DXF output
 
 Public API:
 
@@ -281,20 +304,22 @@ This isolates Core from external consumers and makes the plugin callable by a si
 
 ### AutoCadMock
 
-Console-based host simulator.
+Interactive desktop CAD host simulator.
 
 Responsibilities:
 
-* simulate an external CAD host
-* invoke plugin services
-* generate diagnostic output
-* later drive DXF export scenarios
+* collect dial values from the user
+* build `DialCadRequest`
+* call plugin services
+* generate DXF output
+* display CAD summary and output path
 
 Used for:
 
 * integration testing
-* pipeline validation
-* CAD workflow simulation
+* manual CAD workflow simulation
+* validating the host-driven interaction model
+* local DXF generation and inspection
 
 This project **does not reference Core**.
 
@@ -307,24 +332,29 @@ The system currently supports:
 * dial rule validation
 * dial geometry generation
 * CAD entity generation
+* normalized CAD-style arc storage
 * layered drawing output
-* host-based diagnostics
+* DXF export
+* interactive desktop host input
 * SVG preview rendering
-* unit testing of geometry logic
+* CAD viewer validation in LibreCAD
+* unit and integration-style test coverage for the CAD path
 
 Typical output example:
 
 ```text
 CAD DRAWING SUMMARY
 ===================
-Layers   : 4
-Entities : 24
+Layers   : 6
+Entities : 27
 
 Layers:
 - DIAL_ARC
 - DIAL_TICKS
 - DIAL_LABELS
 - DIAL_NEEDLE
+- DIAL_CENTER
+- DIAL_META
 ```
 
 ---
@@ -344,7 +374,7 @@ Run the Blazor UI:
 dotnet run --project DialMock/DialMock.csproj
 ```
 
-Run the CAD host simulator:
+Run the interactive desktop CAD host:
 
 ```bash
 dotnet run --project AutoCadMock/AutoCadMock.csproj
@@ -358,6 +388,23 @@ dotnet test DialMock.slnx
 
 ---
 
+## Runtime Model
+
+The repository currently contains two different host types:
+
+### `DialMock`
+
+A web host for SVG preview and business-rule-oriented interaction.
+
+### `AutoCadMock`
+
+A desktop host for CAD-side interaction.
+
+For version 1.2.x, `AutoCadMock` is implemented as a lightweight interactive desktop application.
+A future headless mode may be added later for CI, container, or workflow-driven execution.
+
+---
+
 ## CI/CD
 
 Automated pipelines are configured using:
@@ -368,6 +415,12 @@ Jenkinsfile.deploy
 Dockerfile
 scripts/
 ```
+
+At present, CI/CD still needs to be updated so that:
+
+* `DialMock` is handled as a web host
+* `AutoCadMock` is handled as a desktop artifact
+* both outputs are built and published appropriately
 
 See:
 
@@ -404,8 +457,11 @@ version.md             versioning rules
 
 Upcoming phases:
 
-```text 
-Phase 8 — extended CAD-path test coverage
+```text
+Phase 10 — CI/CD, packaging, and runtime adaptation
+Phase 11 — print/plot framing strategy
+Phase 12 — optional headless execution mode
+Phase 13 — optional workflow/PLM-style request injection
 ```
 
 ---
@@ -415,4 +471,3 @@ Phase 8 — extended CAD-path test coverage
 MIT License
 
 See `LICENSE`.
- 
