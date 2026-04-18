@@ -1,0 +1,79 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AutoCadMock.ViewModels"
+        x:Class="AutoCadMock.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="920"
+        Height="760"
+        MinWidth="820"
+        MinHeight="680"
+        Title="AutoCadMock">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Grid.Row="0" Padding="16">
+      <StackPanel Spacing="12">
+        <TextBlock Text="AutoCadMock"
+                   FontSize="24"
+                   FontWeight="SemiBold" />
+
+        <Grid ColumnDefinitions="Auto,*,Auto,*"
+              RowDefinitions="Auto,Auto,Auto,Auto"
+              ColumnSpacing="12"
+              RowSpacing="10">
+
+          <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="Title" />
+          <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Title}" />
+
+          <TextBlock Grid.Row="0" Grid.Column="2" VerticalAlignment="Center" Text="Unit" />
+          <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding Unit}" />
+
+          <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="Min value" />
+          <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MinValue}" />
+
+          <TextBlock Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" Text="Max value" />
+          <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding MaxValue}" />
+
+          <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="Preview value" />
+          <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding PreviewValue}" />
+
+          <TextBlock Grid.Row="2" Grid.Column="2" VerticalAlignment="Center" Text="Major tick count" />
+          <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding MajorTickCount}" />
+
+          <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Text="Output path" />
+          <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding OutputPath}" />
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <Button Content="Load Default Sample"
+                  Command="{Binding LoadDefaultSampleCommand}" />
+          <Button Content="Load Pressure100 Sample"
+                  Command="{Binding LoadPressure100SampleCommand}" />
+          <Button Content="Generate DXF"
+                  Command="{Binding GenerateDxfCommand}" />
+          <Button Content="Open Folder"
+                  Command="{Binding OpenOutputFolderCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="1" Padding="16">
+      <Grid RowDefinitions="Auto,*" RowSpacing="8">
+        <TextBlock Text="CAD Summary"
+                   FontSize="18"
+                   FontWeight="SemiBold" />
+
+        <TextBox Grid.Row="1"
+                 Text="{Binding SummaryText}"
+                 AcceptsReturn="True"
+                 IsReadOnly="True"
+                 TextWrapping="Wrap"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2" Padding="16">
+      <TextBlock Text="{Binding StatusMessage}" />
+    </Border>
+  </Grid>
+</Window>

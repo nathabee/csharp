@@ -14,7 +14,7 @@ Phase 13 : optional PLM-style workflow simulation
 ---
 change AutocadMock into an interactive Desktop App
 ---
-1.2.0 Phase 9 : interactive AutoCadMock conversion AutocadMock from console host to small desktop app
+1.2.0 Phase 9 : conversion AutocadMock from console host to interactive desktop app using Avalonia
 ---
 Add AutoCadMock (console host), DialAutoCADPlugin (DLL producing the DXF) using the same logic and data defined in the Core and modelCAD
 ---

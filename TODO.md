@@ -37,8 +37,23 @@ A small executable host with form input, roughly mirroring the operator experien
  
 
  
+### Phase 10 — CI/CD and packaging update
 
-### Phase 10 — print/plot framing strategy
+Adapt Jenkins, scripts, and Docker so both hosts are buildable and testable.
+
+Scope:
+
+* build `DialMock`
+* build `AutoCadMock`
+* run tests for all projects
+* publish Blazor app
+* publish AutoCadMock artifacts
+* archive generated DXF output as build artifact in CI if useful
+
+This should come after Phases 8–10 so automation reflects a stable workflow, not a moving target.
+
+
+### Phase 11 — print/plot framing strategy
 
 Decide how printable area should be controlled for CAD output.
 
@@ -53,21 +68,6 @@ Scope:
   * or a future layout/frame concept
 
 This matters because AutoCAD-style plotting is based on plot area settings like `Extents`, `Window`, and `Layout`, not just raw geometry. ([Autodesk Help][2])
-
-### Phase 11 — CI/CD and packaging update
-
-Adapt Jenkins, scripts, and Docker so both hosts are buildable and testable.
-
-Scope:
-
-* build `DialMock`
-* build `AutoCadMock`
-* run tests for all projects
-* publish Blazor app
-* publish AutoCadMock artifacts
-* archive generated DXF output as build artifact in CI if useful
-
-This should come after Phases 8–10 so automation reflects a stable workflow, not a moving target.
 
 ### Phase 12 — documentation and architecture hardening
 

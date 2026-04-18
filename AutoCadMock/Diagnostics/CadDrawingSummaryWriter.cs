@@ -1,5 +1,7 @@
-using DialMock.CadModel.Model;
+using System;
+using System.Linq;
 using System.Text;
+using DialMock.CadModel.Model;
 
 namespace AutoCadMock.Diagnostics;
 
