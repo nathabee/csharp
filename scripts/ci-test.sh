@@ -1,17 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TEST_IMAGE="${TEST_IMAGE:?TEST_IMAGE is required}"
-TEST_CONTAINER="dialmock-test-${BUILD_NUMBER:-local}"
+IMAGE_NAME="dialmock-ci-test"
+CONTAINER_NAME="dialmock-test-container"
 
-echo "[ci-test] running tests from image: ${TEST_IMAGE}"
+RESULT_DIR="artifacts/testresults"
 
-rm -rf TestResults
-mkdir -p TestResults
+echo "=== CI TEST START ==="
 
-docker rm -f "${TEST_CONTAINER}" >/dev/null 2>&1 || true
+mkdir -p "${RESULT_DIR}"
 
-docker create --name "${TEST_CONTAINER}" "${TEST_IMAGE}" >/dev/null
-docker start -a "${TEST_CONTAINER}"
-docker cp "${TEST_CONTAINER}:/artifacts/testresults/." "TestResults/"
-docker rm -f "${TEST_CONTAINER}" >/dev/null 2>&1 || true
+docker build \
+  --target test \
+  -t "${IMAGE_NAME}" \
+  .
+
+docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
+
+docker create \
+  --name "${CONTAINER_NAME}" \
+  "${IMAGE_NAME}"
+
+docker cp \
+  "${CONTAINER_NAME}:/artifacts/testresults" \
+  "${RESULT_DIR}"
+
+docker rm "${CONTAINER_NAME}"
+
+echo "=== CI TEST DONE ==="

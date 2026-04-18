@@ -1,0 +1,94 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "dialmock-desktop-build"
+        CONTAINER_NAME = "dialmock-desktop-extract"
+        ARTIFACT_DIR = "artifacts"
+        OUTPUT_NAME = "AutoCadMock-desktop-linux-x64"
+    }
+
+    stages {
+
+        stage('Clean workspace') {
+            steps {
+                sh '''
+                    set -e
+
+                    rm -rf ${ARTIFACT_DIR}
+                    mkdir -p ${ARTIFACT_DIR}
+                '''
+            }
+        }
+
+        stage('Build publish-autocadmock image') {
+            steps {
+                sh '''
+                    set -e
+
+                    docker build \
+                        --target publish-autocadmock \
+                        -t ${IMAGE_NAME} \
+                        .
+                '''
+            }
+        }
+
+        stage('Extract desktop artifacts') {
+            steps {
+                sh '''
+                    set -e
+
+                    docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
+
+                    docker create \
+                        --name ${CONTAINER_NAME} \
+                        ${IMAGE_NAME}
+
+                    docker cp \
+                        ${CONTAINER_NAME}:/artifacts/AutoCadMock-desktop \
+                        ${ARTIFACT_DIR}/${OUTPUT_NAME}
+
+                    docker rm ${CONTAINER_NAME}
+                '''
+            }
+        }
+
+        stage('Package tar.gz') {
+            steps {
+                sh '''
+                    set -e
+
+                    cd ${ARTIFACT_DIR}
+
+                    tar -czf \
+                        ${OUTPUT_NAME}.tar.gz \
+                        ${OUTPUT_NAME}
+
+                    cd ..
+                '''
+            }
+        }
+
+        stage('Archive artifacts') {
+            steps {
+                archiveArtifacts artifacts: 'artifacts/*.tar.gz'
+            }
+        }
+
+    }
+
+    post {
+        always {
+            echo 'Desktop build pipeline finished.'
+        }
+
+        failure {
+            echo 'Desktop build FAILED.'
+        }
+
+        success {
+            echo 'Desktop build SUCCESS.'
+        }
+    }
+}

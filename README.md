@@ -129,7 +129,7 @@ Not yet implemented:
 ├── VERSION
 ├── LICENSE
 └── README.md
-````
+```
 
 </details>
 
@@ -138,47 +138,47 @@ Not yet implemented:
 ## Architecture Overview
 
 ```mermaid
+
 graph TD
-    A[Dial specification input<br/>title, unit, range, ticks, preview value]
+    A[DialSpec input]
 
     A --> B[DialMock.Core<br/>shared dial logic]
 
-    B --> C[DialMock<br/>Blazor web app]
+    B --> C[DialMock<br/>web host]
     C --> D[SVG renderer]
     D --> E[Browser demo]
 
-    B --> F[DialAutoCADPlugin<br/>reusable CAD/plugin integration layer]
-    F --> G[Neutral CAD entity model<br/>lines, arcs, text, layers, circles]
+    B --> F[DialAutoCADPlugin<br/>reusable CAD integration layer]
+    F --> G[Neutral CAD model]
 
-    G --> H[AutoCadMock<br/>interactive desktop host]
-    H --> I[DXF export]
-    I --> J[LibreCAD / CAD viewer]
+    G --> H[AutoCadMock<br/>desktop mock host]
+    H --> I[DXF exporter]
+    I --> J[DXF viewer]
 
-    G --> K[Future real AutoCAD host]
-    K --> L[AutoCAD managed API adapter]
-    L --> M[Real AutoCAD DB objects]
+    G --> K[Future AutoCAD host<br/>planned]
+    K --> L[AutoCAD API adapter<br/>planned]
+    L --> M[AutoCAD DB entities<br/>planned]
 
-    subgraph Shared Logic
+    subgraph Implemented today
         B
-        F
-        G
-    end
-
-    subgraph Demo Hosts
         C
         D
         E
+        F
+        G
         H
         I
         J
     end
 
-    subgraph Real CAD Environment
+    subgraph Planned integration
         K
         L
         M
     end
+
 ```
+ 
 
 ### Architectural Notes
 
@@ -412,10 +412,30 @@ Automated pipelines are configured using:
 ```text
 Jenkinsfile.ci
 Jenkinsfile.deploy
+Jenkinsfile.desktop-build
 Dockerfile
 scripts/
 ```
 
+graph TD
+
+    A[Git commit]
+
+    A --> B[Jenkinsfile.ci]
+
+    B --> C[Build solution]
+    C --> D[Test solution]
+
+    A --> E[Jenkinsfile.deploy]
+
+    E --> F[Build DialMock Docker image]
+    F --> G[Deploy web container]
+
+    A --> H[Jenkinsfile.desktop-build]
+
+    H --> I[Publish AutoCadMock]
+    I --> J[Create Linux package]
+    J --> K[Archive desktop artifact]
 At present, CI/CD still needs to be updated so that:
 
 * `DialMock` is handled as a web host

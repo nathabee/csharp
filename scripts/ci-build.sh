@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TEST_IMAGE="${TEST_IMAGE:?TEST_IMAGE is required}"
+IMAGE_NAME="dialmock-ci-build"
 
-echo "[ci-build] building test image: ${TEST_IMAGE}"
+echo "=== CI BUILD START ==="
 
 docker build \
-  --target test \
-  -t "${TEST_IMAGE}" \
+  --target build \
+  -t "${IMAGE_NAME}" \
   .
+
+echo "=== CI BUILD DONE ==="

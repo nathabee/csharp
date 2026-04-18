@@ -7,10 +7,11 @@ pipeline {
     }
 
     environment {
-        TEST_IMAGE = "dialmock:ci-test-${env.BUILD_NUMBER}"
+        ARTIFACT_DIR = "artifacts"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -27,7 +28,7 @@ pipeline {
             }
         }
 
-        stage('Build test image') {
+        stage('Build solution') {
             steps {
                 sh './scripts/ci-build.sh'
             }
@@ -37,21 +38,41 @@ pipeline {
             steps {
                 sh './scripts/ci-test.sh'
             }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'TestResults/**/*', fingerprint: true, allowEmptyArchive: true
-                }
+        }
+
+        stage('Publish DialMock web') {
+            steps {
+                sh './scripts/ci-publish-dialmock.sh'
             }
         }
+
+        stage('Publish AutoCadMock desktop') {
+            steps {
+                sh './scripts/ci-publish-autocadmock.sh'
+            }
+        }
+
+        stage('Archive artifacts') {
+            steps {
+                archiveArtifacts artifacts: '''
+                    artifacts/testresults/**
+                    artifacts/DialMock-web/**
+                    artifacts/AutoCadMock-desktop-linux-x64/**
+                ''', fingerprint: true
+            }
+        }
+
     }
 
     post {
         success {
             echo 'CI pipeline completed successfully.'
         }
+
         failure {
             echo 'CI pipeline failed.'
         }
+
         always {
             cleanWs()
         }

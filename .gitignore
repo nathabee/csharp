@@ -5,7 +5,10 @@
 # Publish output
 publish/
 **/publish/
+artifacts/
 
+TestResults/
+ 
 # User / IDE files
 .vs/
 .idea/
@@ -44,3 +47,5 @@ DialMock/Components/Layout/ReconnectModal.razor.css
 DialMock/Components/Layout/ReconnectModal.razor.js
 DialMock/Components/Pages/Weather.razor
 DialMock/Components/Pages/Error.razor
+
+artifacts/

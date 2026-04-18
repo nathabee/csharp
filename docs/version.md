@@ -4,8 +4,14 @@
 
 ```text
 to be done :  
-Phase 10 : print/plot framing strategy
-Phase 11 : CI/CD and Docker/Jenkins adaptation
+Phase 10 : CI/CD and Docker/Jenkins adaptation
+- Step 1 — Fix CI to build the whole solution (no Docker yet)
+- Step 2 — Add publish outputs for both hosts
+- Step 3 — Keep Docker focused only on DialMock
+- Step 4 — Confirm deploy pipeline remains web-only
+- Step 5 — Optional packaging refinement (later)
+
+Phase 11 : print/plot framing strategy
 Phase 12 : documentation and architecture hardening
 Phase 13 : optional PLM-style workflow simulation
 ```
@@ -14,6 +20,7 @@ Phase 13 : optional PLM-style workflow simulation
 ---
 change AutocadMock into an interactive Desktop App
 ---
+1.2.1 Phase 10 : Step 1 implementation, Docker-based CI with dual publish outputs.
 1.2.0 Phase 9 : conversion AutocadMock from console host to interactive desktop app using Avalonia
 ---
 Add AutoCadMock (console host), DialAutoCADPlugin (DLL producing the DXF) using the same logic and data defined in the Core and modelCAD
