@@ -4,35 +4,70 @@ pipeline {
     options {
         timestamps()
         disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '1', artifactNumToKeepStr: '1'))
     }
 
     environment {
         ARTIFACT_DIR = "artifacts"
         EXPORT_DIR = "artifacts-export"
-        OUTPUT_NAME = "AutoCadMock-desktop-linux-x64"
+
+        LINUX_OUTPUT_DIR = "AutoCadMock-desktop-linux-x64"
+        LINUX_ASSET = "AutoCadMock-desktop-linux-x64.tar.gz"
+
+        WIN_OUTPUT_DIR = "AutoCadMock-desktop-win-x64"
+        WIN_ASSET = "AutoCadMock-desktop-win-x64.zip"
     }
 
     stages {
 
-        stage('Clean workspace') {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Docker access check') {
             steps {
                 sh '''
                     set -e
-
-                    rm -rf "${ARTIFACT_DIR}" "${EXPORT_DIR}"
-                    mkdir -p "${ARTIFACT_DIR}" "${EXPORT_DIR}"
+                    docker version
                 '''
             }
         }
 
-        stage('Publish desktop artifacts to workspace') {
+        stage('Clean workspace') {
+            steps {
+                cleanWs()
+                sh '''
+                    set -e
+
+                    rm -rf "${ARTIFACT_DIR}" "${EXPORT_DIR}"
+                    mkdir -p "${ARTIFACT_DIR}" "${EXPORT_DIR}/linux" "${EXPORT_DIR}/win"
+                '''
+            }
+        }
+
+        stage('Publish Linux desktop artifacts to workspace') {
             steps {
                 sh '''
                     set -e
 
                     docker buildx build \
                         --target publish-autocadmock \
-                        --output type=local,dest="${EXPORT_DIR}" \
+                        --output type=local,dest="${EXPORT_DIR}/linux" \
+                        .
+                '''
+            }
+        }
+
+        stage('Publish Windows desktop artifacts to workspace') {
+            steps {
+                sh '''
+                    set -e
+
+                    docker buildx build \
+                        --target publish-autocadmock-win \
+                        --output type=local,dest="${EXPORT_DIR}/win" \
                         .
                 '''
             }
@@ -43,33 +78,50 @@ pipeline {
                 sh '''
                     set -e
 
-                    mv "${EXPORT_DIR}/artifacts/AutoCadMock-desktop" "${ARTIFACT_DIR}/${OUTPUT_NAME}"
+                    mv "${EXPORT_DIR}/linux/artifacts/AutoCadMock-desktop" "${ARTIFACT_DIR}/${LINUX_OUTPUT_DIR}"
+                    mv "${EXPORT_DIR}/win/artifacts/AutoCadMock-desktop-win-x64" "${ARTIFACT_DIR}/${WIN_OUTPUT_DIR}"
+
                     rm -rf "${EXPORT_DIR}"
                 '''
             }
         }
 
-        stage('Package tar.gz') {
+        stage('Package Linux tar.gz') {
             steps {
                 sh '''
                     set -e
 
                     cd "${ARTIFACT_DIR}"
-                    tar -czf "${OUTPUT_NAME}.tar.gz" "${OUTPUT_NAME}"
+                    tar -czf "${LINUX_ASSET}" "${LINUX_OUTPUT_DIR}"
+                '''
+            }
+        }
+
+        stage('Package Windows zip') {
+            steps {
+                sh '''
+                    set -e
+
+                    cd "${ARTIFACT_DIR}"
+                    zip -r "${WIN_ASSET}" "${WIN_OUTPUT_DIR}"
                 '''
             }
         }
 
         stage('Archive artifacts') {
             steps {
-                archiveArtifacts artifacts: 'artifacts/*.tar.gz', fingerprint: true
+                archiveArtifacts artifacts: 'artifacts/*.tar.gz,artifacts/*.zip', fingerprint: true
             }
         }
-
     }
 
     post {
         always {
+            sh '''
+                set +e
+                docker builder prune -af >/dev/null 2>&1 || true
+            '''
+            cleanWs(deleteDirs: true, disableDeferredWipeout: true)
             echo 'Desktop build pipeline finished.'
         }
 

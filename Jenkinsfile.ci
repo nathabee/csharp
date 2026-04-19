@@ -4,6 +4,7 @@ pipeline {
     options {
         timestamps()
         disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '2', artifactNumToKeepStr: '1'))
     }
 
     environment {
@@ -46,18 +47,11 @@ pipeline {
             }
         }
 
-        stage('Publish AutoCadMock desktop') {
-            steps {
-                sh './scripts/ci-publish-autocadmock.sh'
-            }
-        }
-
         stage('Archive artifacts') {
             steps {
-                archiveArtifacts artifacts: 'artifacts/testresults/**,artifacts/DialMock-web/**,artifacts/AutoCadMock-desktop-linux-x64/**', fingerprint: true
+                archiveArtifacts artifacts: 'artifacts/testresults/**,artifacts/DialMock-web/**', fingerprint: true
             }
         }
-
     }
 
     post {
@@ -70,7 +64,16 @@ pipeline {
         }
 
         always {
-            cleanWs()
+            sh '''
+                set +e
+
+                docker image rm dialmock-ci-build:latest 2>/dev/null || true
+                docker image rm dialmock-ci-test:latest 2>/dev/null || true
+                docker image rm dialmock-publish-web:latest 2>/dev/null || true
+
+                docker builder prune -af >/dev/null 2>&1 || true
+            '''
+            cleanWs(deleteDirs: true, disableDeferredWipeout: true)
         }
     }
 }
