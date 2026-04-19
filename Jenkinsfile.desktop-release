@@ -1,0 +1,302 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    parameters {
+        string(
+            name: 'RELEASE_TAG',
+            defaultValue: '',
+            description: 'Git tag/release name, for example v1.2.1'
+        )
+        string(
+            name: 'RELEASE_NAME',
+            defaultValue: '',
+            description: 'Optional GitHub release title. Leave empty to reuse RELEASE_TAG.'
+        )
+        string(
+            name: 'TARGET_COMMITISH',
+            defaultValue: 'main',
+            description: 'Branch or commit SHA for the release tag if GitHub must create it.'
+        )
+        string(
+            name: 'GITHUB_REPOSITORY',
+            defaultValue: 'nathabee/csharp',
+            description: 'GitHub repository in owner/name format.'
+        )
+        string(
+            name: 'GITHUB_TOKEN_CREDENTIALS_ID',
+            defaultValue: 'github-token',
+            description: 'Jenkins Secret Text credentials ID containing a GitHub token.'
+        )
+        booleanParam(
+            name: 'DRAFT',
+            defaultValue: false,
+            description: 'Create the GitHub release as a draft.'
+        )
+        booleanParam(
+            name: 'PRERELEASE',
+            defaultValue: false,
+            description: 'Mark the GitHub release as a prerelease.'
+        )
+    }
+
+    environment {
+        IMAGE_NAME = 'dialmock-desktop-release'
+        CONTAINER_NAME = 'dialmock-desktop-release-extract'
+        ARTIFACT_DIR = 'artifacts'
+        OUTPUT_NAME = 'AutoCadMock-desktop-linux-x64'
+        ASSET_NAME = 'AutoCadMock-desktop-linux-x64.tar.gz'
+    }
+
+    stages {
+        stage('Validate parameters') {
+            steps {
+                script {
+                    if (!params.RELEASE_TAG?.trim()) {
+                        error("RELEASE_TAG is required, for example v1.2.1")
+                    }
+                }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Docker access check') {
+            steps {
+                sh '''
+                    set -e
+                    docker version
+                '''
+            }
+        }
+
+        stage('Clean workspace') {
+            steps {
+                sh '''
+                    set -e
+                    rm -rf "${ARTIFACT_DIR}"
+                    mkdir -p "${ARTIFACT_DIR}"
+                '''
+            }
+        }
+
+        stage('Build publish-autocadmock image') {
+            steps {
+                sh '''
+                    set -e
+                    docker build \
+                      --target publish-autocadmock \
+                      -t "${IMAGE_NAME}" \
+                      .
+                '''
+            }
+        }
+
+        stage('Extract desktop artifacts') {
+            steps {
+                sh '''
+                    set -e
+
+                    docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
+
+                    docker create \
+                      --name "${CONTAINER_NAME}" \
+                      "${IMAGE_NAME}" >/dev/null
+
+                    docker cp \
+                      "${CONTAINER_NAME}:/artifacts/AutoCadMock-desktop" \
+                      "${ARTIFACT_DIR}/${OUTPUT_NAME}"
+
+                    docker rm "${CONTAINER_NAME}" >/dev/null
+                '''
+            }
+        }
+
+        stage('Package tar.gz') {
+            steps {
+                sh '''
+                    set -e
+
+                    cd "${ARTIFACT_DIR}"
+                    tar -czf "${ASSET_NAME}" "${OUTPUT_NAME}"
+                '''
+            }
+        }
+
+        stage('Archive artifacts') {
+            steps {
+                archiveArtifacts artifacts: 'artifacts/*.tar.gz', fingerprint: true
+            }
+        }
+
+        stage('Create or update GitHub release') {
+            steps {
+                withCredentials([string(credentialsId: params.GITHUB_TOKEN_CREDENTIALS_ID, variable: 'GITHUB_TOKEN')]) {
+                    sh '''
+                        set -euo pipefail
+
+                        TAG="${RELEASE_TAG}"
+                        RELEASE_NAME_VALUE="${RELEASE_NAME}"
+                        if [ -z "${RELEASE_NAME_VALUE}" ]; then
+                          RELEASE_NAME_VALUE="${TAG}"
+                        fi
+
+                        REPO="${GITHUB_REPOSITORY}"
+                        API_ROOT="https://api.github.com/repos/${REPO}"
+                        ASSET_PATH="${ARTIFACT_DIR}/${ASSET_NAME}"
+
+                        auth_header="Authorization: Bearer ${GITHUB_TOKEN}"
+                        accept_header="Accept: application/vnd.github+json"
+                        api_version_header="X-GitHub-Api-Version: 2022-11-28"
+
+                        echo "[release] looking for existing release: ${TAG}"
+
+                        status_code="$(curl -sS -o release_lookup.json -w "%{http_code}" \
+                          -H "${auth_header}" \
+                          -H "${accept_header}" \
+                          -H "${api_version_header}" \
+                          "${API_ROOT}/releases/tags/${TAG}")"
+
+                        if [ "${status_code}" = "200" ]; then
+                          echo "[release] existing release found"
+                          cp release_lookup.json release_response.json
+                        elif [ "${status_code}" = "404" ]; then
+                          echo "[release] release not found, creating it"
+
+                          python3 - <<'PY' > release_create.json
+import json
+import os
+
+payload = {
+    "tag_name": os.environ["RELEASE_TAG"],
+    "target_commitish": os.environ["TARGET_COMMITISH"],
+    "name": os.environ["RELEASE_NAME"] if os.environ["RELEASE_NAME"] else os.environ["RELEASE_TAG"],
+    "draft": os.environ["DRAFT"].lower() == "true",
+    "prerelease": os.environ["PRERELEASE"].lower() == "true",
+    "generate_release_notes": False
+}
+print(json.dumps(payload))
+PY
+
+                          create_status="$(curl -sS -o release_response.json -w "%{http_code}" \
+                            -X POST \
+                            -H "${auth_header}" \
+                            -H "${accept_header}" \
+                            -H "${api_version_header}" \
+                            "${API_ROOT}/releases" \
+                            --data @release_create.json)"
+
+                          if [ "${create_status}" != "201" ]; then
+                            echo "[release] failed to create release, HTTP ${create_status}"
+                            cat release_response.json
+                            exit 1
+                          fi
+                        else
+                          echo "[release] unexpected lookup status: ${status_code}"
+                          cat release_lookup.json
+                          exit 1
+                        fi
+
+                        RELEASE_ID="$(python3 - <<'PY'
+import json
+with open("release_response.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+print(data["id"])
+PY
+)"
+                        UPLOAD_URL_BASE="$(python3 - <<'PY'
+import json
+with open("release_response.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+print(data["upload_url"].split("{")[0])
+PY
+)"
+
+                        echo "[release] release id: ${RELEASE_ID}"
+
+                        echo "[release] checking whether asset already exists"
+                        curl -sS \
+                          -H "${auth_header}" \
+                          -H "${accept_header}" \
+                          -H "${api_version_header}" \
+                          "${API_ROOT}/releases/${RELEASE_ID}/assets" \
+                          -o release_assets.json
+
+                        EXISTING_ASSET_ID="$(python3 - <<'PY'
+import json
+import os
+
+asset_name = os.environ["ASSET_NAME"]
+with open("release_assets.json", "r", encoding="utf-8") as f:
+    assets = json.load(f)
+
+match = next((str(a["id"]) for a in assets if a.get("name") == asset_name), "")
+print(match)
+PY
+)"
+
+                        if [ -n "${EXISTING_ASSET_ID}" ]; then
+                          echo "[release] deleting existing asset id ${EXISTING_ASSET_ID}"
+                          delete_status="$(curl -sS -o /dev/null -w "%{http_code}" \
+                            -X DELETE \
+                            -H "${auth_header}" \
+                            -H "${accept_header}" \
+                            -H "${api_version_header}" \
+                            "${API_ROOT}/releases/assets/${EXISTING_ASSET_ID}")"
+
+                          if [ "${delete_status}" != "204" ]; then
+                            echo "[release] failed to delete existing asset, HTTP ${delete_status}"
+                            exit 1
+                          fi
+                        fi
+
+                        echo "[release] uploading asset ${ASSET_NAME}"
+                        upload_status="$(curl -sS -o upload_response.json -w "%{http_code}" \
+                          -X POST \
+                          -H "${auth_header}" \
+                          -H "Content-Type: application/gzip" \
+                          "${UPLOAD_URL_BASE}?name=${ASSET_NAME}" \
+                          --data-binary @"${ASSET_PATH}")"
+
+                        if [ "${upload_status}" != "201" ]; then
+                          echo "[release] upload failed, HTTP ${upload_status}"
+                          cat upload_response.json
+                          exit 1
+                        fi
+
+                        ASSET_URL="$(python3 - <<'PY'
+import json
+with open("upload_response.json", "r", encoding="utf-8") as f:
+    data = json.load(f)
+print(data["browser_download_url"])
+PY
+)"
+
+                        echo "[release] upload successful"
+                        echo "[release] asset url: ${ASSET_URL}"
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Desktop release pipeline completed successfully.'
+        }
+        failure {
+            echo 'Desktop release pipeline failed.'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

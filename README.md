@@ -417,6 +417,7 @@ Dockerfile
 scripts/
 ```
 
+```mermaid
 graph TD
 
     A[Git commit]
@@ -436,6 +437,7 @@ graph TD
     H --> I[Publish AutoCadMock]
     I --> J[Create Linux package]
     J --> K[Archive desktop artifact]
+```
 At present, CI/CD still needs to be updated so that:
 
 * `DialMock` is handled as a web host

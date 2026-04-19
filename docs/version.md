@@ -3,27 +3,23 @@
 ---
 
 ```text
-to be done :  
-Phase 10 : CI/CD and Docker/Jenkins adaptation
-- Step 1 — Fix CI to build the whole solution (no Docker yet)
-- Step 2 — Add publish outputs for both hosts
-- Step 3 — Keep Docker focused only on DialMock
-- Step 4 — Confirm deploy pipeline remains web-only
-- Step 5 — Optional packaging refinement (later)
-
-Phase 11 : print/plot framing strategy
-Phase 12 : documentation and architecture hardening
-Phase 13 : optional PLM-style workflow simulation
+to be done :   
+Phase 11 :  CI/CD - GitHub Release automation
+Phase 12 :  CI/CD - Windows desktop packaging
+Phase 13: print/plot framing strategy
+Phase 14 : documentation and architecture hardening
+Phase 15 : optional PLM-style workflow simulation
 ```
 
 
 ---
-change AutocadMock into an interactive Desktop App
+## 1.2.x change AutocadMock into an interactive Desktop App
 ---
-1.2.1 Phase 10 : Step 1 implementation, Docker-based CI with dual publish outputs.
+1.2.1 Phase 11 : CI/CD- GitHub Release automation
+1.2.1 Phase 10 : CI/CD and Docker/Jenkins adaptation
 1.2.0 Phase 9 : conversion AutocadMock from console host to interactive desktop app using Avalonia
 ---
-Add AutoCadMock (console host), DialAutoCADPlugin (DLL producing the DXF) using the same logic and data defined in the Core and modelCAD
+## 1.1.x Add AutoCadMock (console host), DialAutoCADPlugin (DLL producing the DXF) using the same logic and data defined in the Core and modelCAD
 ---
 1.1.8 Phase 8 : extended CAD-path test coverage
 1.1.7 Phase 7 : external CAD validation
@@ -35,7 +31,7 @@ Add AutoCadMock (console host), DialAutoCADPlugin (DLL producing the DXF) using 
 1.1.1 Phase 1 : add DialMock.CadModel
 1.1.0 Release before starting DialAutoCADPlugin and AutoCadMock developpement
 ---
-## Blazor UI DialMock , web app creating Dials and display them using SVG
+## 1.0.x   Blazor UI DialMock , web app creating Dials and display them using SVG
 ---
 1.0.6 Fix Blazor static asset resolution causing missing blazor.web.js in production
 1.0.5 Add Jenkins and scripts/ci_* to handle Ci/CD and Docker build
