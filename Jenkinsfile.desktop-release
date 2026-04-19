@@ -2,11 +2,23 @@ pipeline {
     agent any
 
     options {
+        skipDefaultCheckout(true)
         timestamps()
         disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '20'))
     }
 
     parameters {
+        string(
+            name: 'SOURCE_BUILD_JOB',
+            defaultValue: 'dialmock-desktop-build',
+            description: 'Jenkins job name that produced the desktop artifacts.'
+        )
+        string(
+            name: 'SOURCE_BUILD_NUMBER',
+            defaultValue: '',
+            description: 'Build number from the desktop-build job to promote.'
+        )
         string(
             name: 'RELEASE_TAG',
             defaultValue: '',
@@ -46,12 +58,7 @@ pipeline {
 
     environment {
         ARTIFACT_DIR = 'artifacts'
-        EXPORT_DIR = 'artifacts-export'
-
-        LINUX_OUTPUT_DIR = 'AutoCadMock-desktop-linux-x64'
         LINUX_ASSET = 'AutoCadMock-desktop-linux-x64.tar.gz'
-
-        WIN_OUTPUT_DIR = 'AutoCadMock-desktop-win-x64'
         WIN_ASSET = 'AutoCadMock-desktop-win-x64.zip'
     }
 
@@ -59,6 +66,9 @@ pipeline {
         stage('Validate parameters') {
             steps {
                 script {
+                    if (!params.SOURCE_BUILD_NUMBER?.trim()) {
+                        error("SOURCE_BUILD_NUMBER is required.")
+                    }
                     if (!params.RELEASE_TAG?.trim()) {
                         error("RELEASE_TAG is required, for example v1.2.1")
                     }
@@ -66,92 +76,43 @@ pipeline {
             }
         }
 
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Docker access check') {
-            steps {
-                sh '''
-                    set -e
-                    docker version
-                '''
-            }
-        }
-
         stage('Clean workspace') {
             steps {
-                cleanWs()
+                cleanWs(deleteDirs: true, disableDeferredWipeout: true)
                 sh '''
                     set -e
-                    rm -rf "${ARTIFACT_DIR}" "${EXPORT_DIR}"
-                    mkdir -p "${ARTIFACT_DIR}" "${EXPORT_DIR}/linux" "${EXPORT_DIR}/win"
+                    mkdir -p "${ARTIFACT_DIR}"
                 '''
             }
         }
 
-        stage('Publish Linux desktop artifacts to workspace') {
+        stage('Copy archived artifacts from desktop-build') {
+            steps {
+                copyArtifacts(
+                    projectName: params.SOURCE_BUILD_JOB,
+                    selector: specific(params.SOURCE_BUILD_NUMBER),
+                    filter: "artifacts/${LINUX_ASSET},artifacts/${WIN_ASSET}",
+                    target: '.',
+                    flatten: false,
+                    optional: false
+                )
+            }
+        }
+
+        stage('Validate copied artifacts') {
             steps {
                 sh '''
                     set -e
 
-                    docker buildx build \
-                        --target publish-autocadmock \
-                        --output type=local,dest="${EXPORT_DIR}/linux" \
-                        .
+                    test -f "${ARTIFACT_DIR}/${LINUX_ASSET}"
+                    test -f "${ARTIFACT_DIR}/${WIN_ASSET}"
+
+                    ls -lh "${ARTIFACT_DIR}/${LINUX_ASSET}" "${ARTIFACT_DIR}/${WIN_ASSET}"
                 '''
             }
         }
 
-        stage('Publish Windows desktop artifacts to workspace') {
-            steps {
-                sh '''
-                    set -e
-
-                    docker buildx build \
-                        --target publish-autocadmock-win \
-                        --output type=local,dest="${EXPORT_DIR}/win" \
-                        .
-                '''
-            }
-        }
-
-        stage('Normalize desktop artifact layout') {
-            steps {
-                sh '''
-                    set -e
-
-                    mv "${EXPORT_DIR}/linux/artifacts/AutoCadMock-desktop" "${ARTIFACT_DIR}/${LINUX_OUTPUT_DIR}"
-                    mv "${EXPORT_DIR}/win/artifacts/AutoCadMock-desktop-win-x64" "${ARTIFACT_DIR}/${WIN_OUTPUT_DIR}"
-
-                    rm -rf "${EXPORT_DIR}"
-                '''
-            }
-        }
-
-        stage('Package Linux tar.gz') {
-            steps {
-                sh '''
-                    set -e
-                    cd "${ARTIFACT_DIR}"
-                    tar -czf "${LINUX_ASSET}" "${LINUX_OUTPUT_DIR}"
-                '''
-            }
-        }
-
-        stage('Package Windows zip') {
-            steps {
-                sh '''
-                    set -e
-                    cd "${ARTIFACT_DIR}"
-                    zip -r "${WIN_ASSET}" "${WIN_OUTPUT_DIR}"
-                '''
-            }
-        }
-
-        stage('Archive artifacts') {
+        stage('Archive promoted artifacts in release job') {
             steps {
                 archiveArtifacts artifacts: 'artifacts/*.tar.gz,artifacts/*.zip', fingerprint: true
             }
@@ -289,20 +250,10 @@ PY
                             cat upload_response.json
                             exit 1
                           fi
-
-                          python3 - <<'PY'
-import json
-with open("upload_response.json", "r", encoding="utf-8") as f:
-    data = json.load(f)
-print(data["browser_download_url"])
-PY
                         }
 
-                        linux_url="$(upload_asset "${LINUX_ASSET}" "${ARTIFACT_DIR}/${LINUX_ASSET}" "application/gzip")"
-                        echo "[release] linux asset url: ${linux_url}"
-
-                        win_url="$(upload_asset "${WIN_ASSET}" "${ARTIFACT_DIR}/${WIN_ASSET}" "application/zip")"
-                        echo "[release] windows asset url: ${win_url}"
+                        upload_asset "${LINUX_ASSET}" "${ARTIFACT_DIR}/${LINUX_ASSET}" "application/gzip"
+                        upload_asset "${WIN_ASSET}" "${ARTIFACT_DIR}/${WIN_ASSET}" "application/zip"
                     '''
                 }
             }
@@ -317,10 +268,6 @@ PY
             echo 'Desktop release pipeline failed.'
         }
         always {
-            sh '''
-                set +e
-                docker builder prune -af >/dev/null 2>&1 || true
-            '''
             cleanWs(deleteDirs: true, disableDeferredWipeout: true)
         }
     }
