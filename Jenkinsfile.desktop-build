@@ -9,14 +9,20 @@ pipeline {
     }
 
     environment {
-        ARTIFACT_DIR = "artifacts"
-        EXPORT_DIR = "artifacts-export"
+        ARTIFACT_DIR = 'artifacts'
+        EXPORT_DIR = 'artifacts-export'
 
-        LINUX_OUTPUT_DIR = "AutoCadMock-desktop-linux-x64"
-        LINUX_ASSET = "AutoCadMock-desktop-linux-x64.tar.gz"
+        LINUX_EXPORT_DIR = 'artifacts-export/linux'
+        WIN_EXPORT_DIR = 'artifacts-export/win'
 
-        WIN_OUTPUT_DIR = "AutoCadMock-desktop-win-x64"
-        WIN_ASSET = "AutoCadMock-desktop-win-x64.zip"
+        LINUX_OUTPUT_DIR = 'AutoCadMock-desktop-linux-x64'
+        LINUX_ASSET = 'AutoCadMock-desktop-linux-x64.tar.gz'
+
+        WIN_OUTPUT_DIR = 'AutoCadMock-desktop-win-x64'
+        WIN_ASSET = 'AutoCadMock-desktop-win-x64.zip'
+
+        MIN_FREE_KB_BEFORE_WINDOWS = '6291456'   // 6 GB safety floor
+        MAX_WIN_EXPORT_KB = '2097152'            // 2 GB sanity limit for exported Windows artifact folder
     }
 
     stages {
@@ -38,6 +44,7 @@ pipeline {
                 sh '''
                     set -e
                     docker version
+                    docker buildx version
                 '''
             }
         }
@@ -48,7 +55,7 @@ pipeline {
                     set -e
 
                     rm -rf "${ARTIFACT_DIR}" "${EXPORT_DIR}"
-                    mkdir -p "${ARTIFACT_DIR}" "${EXPORT_DIR}/linux" "${EXPORT_DIR}/win"
+                    mkdir -p "${ARTIFACT_DIR}" "${LINUX_EXPORT_DIR}" "${WIN_EXPORT_DIR}"
                 '''
             }
         }
@@ -60,8 +67,37 @@ pipeline {
 
                     docker buildx build \
                         --target publish-autocadmock \
-                        --output type=local,dest="${EXPORT_DIR}/linux" \
+                        --output type=local,dest="${LINUX_EXPORT_DIR}" \
                         .
+                '''
+            }
+        }
+
+        stage('Validate Linux export layout') {
+            steps {
+                sh '''
+                    set -e
+
+                    test -d "${LINUX_EXPORT_DIR}/artifacts/AutoCadMock-desktop"
+
+                    du -sh "${LINUX_EXPORT_DIR}/artifacts/AutoCadMock-desktop"
+                '''
+            }
+        }
+
+        stage('Preflight before Windows publish') {
+            steps {
+                sh '''
+                    set -e
+
+                    AVAIL_KB="$(df -Pk . | awk 'NR==2 {print $4}')"
+                    echo "Available KB before Windows publish: ${AVAIL_KB}"
+
+                    if [ "${AVAIL_KB}" -lt "${MIN_FREE_KB_BEFORE_WINDOWS}" ]; then
+                      echo "Not enough free disk space for safe Windows packaging."
+                      echo "Required at least ${MIN_FREE_KB_BEFORE_WINDOWS} KB free."
+                      exit 1
+                    fi
                 '''
             }
         }
@@ -73,8 +109,29 @@ pipeline {
 
                     docker buildx build \
                         --target publish-autocadmock-win \
-                        --output type=local,dest="${EXPORT_DIR}/win" \
+                        --output type=local,dest="${WIN_EXPORT_DIR}" \
                         .
+                '''
+            }
+        }
+
+        stage('Validate Windows export layout and size') {
+            steps {
+                sh '''
+                    set -e
+
+                    test -d "${WIN_EXPORT_DIR}/artifacts/AutoCadMock-desktop-win-x64"
+
+                    WIN_SIZE_KB="$(du -sk "${WIN_EXPORT_DIR}/artifacts/AutoCadMock-desktop-win-x64" | awk '{print $1}')"
+                    echo "Windows export size KB: ${WIN_SIZE_KB}"
+                    du -sh "${WIN_EXPORT_DIR}/artifacts/AutoCadMock-desktop-win-x64"
+
+                    if [ "${WIN_SIZE_KB}" -gt "${MAX_WIN_EXPORT_KB}" ]; then
+                      echo "Windows export is unexpectedly large."
+                      echo "This usually means the Docker target exported too much of the image filesystem."
+                      echo "Expected artifact-only export; got ${WIN_SIZE_KB} KB."
+                      exit 1
+                    fi
                 '''
             }
         }
@@ -84,8 +141,8 @@ pipeline {
                 sh '''
                     set -e
 
-                    mv "${EXPORT_DIR}/linux/artifacts/AutoCadMock-desktop" "${ARTIFACT_DIR}/${LINUX_OUTPUT_DIR}"
-                    mv "${EXPORT_DIR}/win/artifacts/AutoCadMock-desktop-win-x64" "${ARTIFACT_DIR}/${WIN_OUTPUT_DIR}"
+                    mv "${LINUX_EXPORT_DIR}/artifacts/AutoCadMock-desktop" "${ARTIFACT_DIR}/${LINUX_OUTPUT_DIR}"
+                    mv "${WIN_EXPORT_DIR}/artifacts/AutoCadMock-desktop-win-x64" "${ARTIFACT_DIR}/${WIN_OUTPUT_DIR}"
 
                     rm -rf "${EXPORT_DIR}"
                 '''
@@ -125,7 +182,10 @@ pipeline {
         always {
             sh '''
                 set +e
+
                 docker builder prune -af >/dev/null 2>&1 || true
+
+                rm -rf "${EXPORT_DIR}" 2>/dev/null || true
             '''
             cleanWs(deleteDirs: true, disableDeferredWipeout: true)
             echo 'Desktop build pipeline finished.'
