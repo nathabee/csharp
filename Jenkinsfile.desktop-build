@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     options {
+        skipDefaultCheckout(true)
         timestamps()
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '1', artifactNumToKeepStr: '1'))
@@ -20,6 +21,12 @@ pipeline {
 
     stages {
 
+        stage('Clean workspace') {
+            steps {
+                cleanWs(deleteDirs: true, disableDeferredWipeout: true)
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -35,9 +42,8 @@ pipeline {
             }
         }
 
-        stage('Clean workspace') {
+        stage('Prepare artifact directories') {
             steps {
-                cleanWs()
                 sh '''
                     set -e
 
