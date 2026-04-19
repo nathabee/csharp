@@ -5,24 +5,19 @@ pipeline {
         skipDefaultCheckout(true)
         timestamps()
         disableConcurrentBuilds()
-        buildDiscarder(logRotator(numToKeepStr: '20'))
+        buildDiscarder(logRotator(numToKeepStr: '2', artifactNumToKeepStr: '2'))
     }
 
     parameters {
-        string(
-            name: 'SOURCE_BUILD_JOB',
-            defaultValue: 'dialmock-desktop-build',
-            description: 'Jenkins job name that produced the desktop artifacts.'
-        )
-        string(
-            name: 'SOURCE_BUILD_NUMBER',
-            defaultValue: '',
-            description: 'Build number from the desktop-build job to promote.'
+        booleanParam(
+            name: 'DO_RELEASE',
+            defaultValue: true,
+            description: 'If true, upload the built desktop artifacts to GitHub release.'
         )
         string(
             name: 'RELEASE_TAG',
             defaultValue: '',
-            description: 'Git tag/release name, for example v1.2.1'
+            description: 'Required only when DO_RELEASE=true. Example: v1.2.1'
         )
         string(
             name: 'RELEASE_NAME',
@@ -58,19 +53,27 @@ pipeline {
 
     environment {
         ARTIFACT_DIR = 'artifacts'
+        EXPORT_DIR = 'artifacts-export'
+
+        LINUX_EXPORT_DIR = 'artifacts-export/linux'
+        WIN_EXPORT_DIR = 'artifacts-export/win'
+
+        LINUX_OUTPUT_DIR = 'AutoCadMock-desktop-linux-x64'
         LINUX_ASSET = 'AutoCadMock-desktop-linux-x64.tar.gz'
+
+        WIN_OUTPUT_DIR = 'AutoCadMock-desktop-win-x64'
         WIN_ASSET = 'AutoCadMock-desktop-win-x64.zip'
+
+        MIN_FREE_KB_BEFORE_WINDOWS = '6291456'
+        MAX_WIN_EXPORT_KB = '2097152'
     }
 
     stages {
         stage('Validate parameters') {
             steps {
                 script {
-                    if (!params.SOURCE_BUILD_NUMBER?.trim()) {
-                        error("SOURCE_BUILD_NUMBER is required.")
-                    }
-                    if (!params.RELEASE_TAG?.trim()) {
-                        error("RELEASE_TAG is required, for example v1.2.1")
+                    if (params.DO_RELEASE && !params.RELEASE_TAG?.trim()) {
+                        error("RELEASE_TAG is required when DO_RELEASE=true, for example v1.2.1")
                     }
                 }
             }
@@ -79,46 +82,156 @@ pipeline {
         stage('Clean workspace') {
             steps {
                 cleanWs(deleteDirs: true, disableDeferredWipeout: true)
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Docker access check') {
+            steps {
                 sh '''
                     set -e
-                    mkdir -p "${ARTIFACT_DIR}"
+                    docker version
+                    docker buildx version
                 '''
             }
         }
 
-        stage('Copy archived artifacts from desktop-build') {
-            steps {
-                copyArtifacts(
-                    projectName: params.SOURCE_BUILD_JOB,
-                    selector: specific(params.SOURCE_BUILD_NUMBER),
-                    filter: "artifacts/${LINUX_ASSET},artifacts/${WIN_ASSET}",
-                    target: '.',
-                    flatten: false,
-                    optional: false
-                )
-            }
-        }
-
-        stage('Validate copied artifacts') {
+        stage('Prepare artifact directories') {
             steps {
                 sh '''
                     set -e
 
-                    test -f "${ARTIFACT_DIR}/${LINUX_ASSET}"
-                    test -f "${ARTIFACT_DIR}/${WIN_ASSET}"
-
-                    ls -lh "${ARTIFACT_DIR}/${LINUX_ASSET}" "${ARTIFACT_DIR}/${WIN_ASSET}"
+                    rm -rf "${ARTIFACT_DIR}" "${EXPORT_DIR}"
+                    mkdir -p "${ARTIFACT_DIR}" "${LINUX_EXPORT_DIR}" "${WIN_EXPORT_DIR}"
                 '''
             }
         }
 
-        stage('Archive promoted artifacts in release job') {
+        stage('Publish Linux desktop artifacts to workspace') {
+            steps {
+                sh '''
+                    set -e
+
+                    docker buildx build \
+                        --target publish-autocadmock \
+                        --output type=local,dest="${LINUX_EXPORT_DIR}" \
+                        .
+                '''
+            }
+        }
+
+        stage('Validate Linux export layout') {
+            steps {
+                sh '''
+                    set -e
+
+                    test -d "${LINUX_EXPORT_DIR}/artifacts/AutoCadMock-desktop"
+                    du -sh "${LINUX_EXPORT_DIR}/artifacts/AutoCadMock-desktop"
+                '''
+            }
+        }
+
+        stage('Preflight before Windows publish') {
+            steps {
+                sh '''
+                    set -e
+
+                    AVAIL_KB="$(df -Pk . | awk 'NR==2 {print $4}')"
+                    echo "Available KB before Windows publish: ${AVAIL_KB}"
+
+                    if [ "${AVAIL_KB}" -lt "${MIN_FREE_KB_BEFORE_WINDOWS}" ]; then
+                      echo "Not enough free disk space for safe Windows packaging."
+                      echo "Required at least ${MIN_FREE_KB_BEFORE_WINDOWS} KB free."
+                      exit 1
+                    fi
+                '''
+            }
+        }
+
+        stage('Publish Windows desktop artifacts to workspace') {
+            steps {
+                sh '''
+                    set -e
+
+                    docker buildx build \
+                        --target publish-autocadmock-win \
+                        --output type=local,dest="${WIN_EXPORT_DIR}" \
+                        .
+                '''
+            }
+        }
+
+        stage('Validate Windows export layout and size') {
+            steps {
+                sh '''
+                    set -e
+
+                    test -d "${WIN_EXPORT_DIR}/artifacts/AutoCadMock-desktop-win-x64"
+
+                    WIN_SIZE_KB="$(du -sk "${WIN_EXPORT_DIR}/artifacts/AutoCadMock-desktop-win-x64" | awk '{print $1}')"
+                    echo "Windows export size KB: ${WIN_SIZE_KB}"
+                    du -sh "${WIN_EXPORT_DIR}/artifacts/AutoCadMock-desktop-win-x64"
+
+                    if [ "${WIN_SIZE_KB}" -gt "${MAX_WIN_EXPORT_KB}" ]; then
+                      echo "Windows export is unexpectedly large."
+                      echo "This usually means the Docker target exported too much of the image filesystem."
+                      echo "Expected artifact-only export; got ${WIN_SIZE_KB} KB."
+                      exit 1
+                    fi
+                '''
+            }
+        }
+
+        stage('Normalize desktop artifact layout') {
+            steps {
+                sh '''
+                    set -e
+
+                    mv "${LINUX_EXPORT_DIR}/artifacts/AutoCadMock-desktop" "${ARTIFACT_DIR}/${LINUX_OUTPUT_DIR}"
+                    mv "${WIN_EXPORT_DIR}/artifacts/AutoCadMock-desktop-win-x64" "${ARTIFACT_DIR}/${WIN_OUTPUT_DIR}"
+
+                    rm -rf "${EXPORT_DIR}"
+                '''
+            }
+        }
+
+        stage('Package Linux tar.gz') {
+            steps {
+                sh '''
+                    set -e
+
+                    cd "${ARTIFACT_DIR}"
+                    tar -czf "${LINUX_ASSET}" "${LINUX_OUTPUT_DIR}"
+                '''
+            }
+        }
+
+        stage('Package Windows zip') {
+            steps {
+                sh '''
+                    set -e
+
+                    cd "${ARTIFACT_DIR}"
+                    zip -r "${WIN_ASSET}" "${WIN_OUTPUT_DIR}"
+                '''
+            }
+        }
+
+        stage('Archive artifacts') {
             steps {
                 archiveArtifacts artifacts: 'artifacts/*.tar.gz,artifacts/*.zip', fingerprint: true
             }
         }
 
         stage('Create or update GitHub release') {
+            when {
+                expression { return params.DO_RELEASE }
+            }
             steps {
                 withCredentials([string(credentialsId: params.GITHUB_TOKEN_CREDENTIALS_ID, variable: 'GITHUB_TOKEN')]) {
                     sh '''
@@ -261,14 +374,25 @@ PY
     }
 
     post {
-        success {
-            echo 'Desktop release pipeline completed successfully.'
-        }
-        failure {
-            echo 'Desktop release pipeline failed.'
-        }
         always {
+            sh '''
+                set +e
+
+                docker builder prune -af >/dev/null 2>&1 || true
+                docker buildx prune -af >/dev/null 2>&1 || true
+
+                rm -rf "${EXPORT_DIR}" 2>/dev/null || true
+            '''
             cleanWs(deleteDirs: true, disableDeferredWipeout: true)
+            echo 'Desktop release pipeline finished.'
+        }
+
+        failure {
+            echo 'Desktop release FAILED.'
+        }
+
+        success {
+            echo 'Desktop release SUCCESS.'
         }
     }
 }
