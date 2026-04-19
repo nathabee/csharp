@@ -64,7 +64,6 @@ WORKDIR /src
 
 RUN dotnet publish AutoCadMock/AutoCadMock.csproj \
     -c Release \
-    --no-build \
     -r linux-x64 \
     --self-contained true \
     -o /artifacts/AutoCadMock-desktop
@@ -84,7 +83,6 @@ WORKDIR /src
 
 RUN dotnet publish AutoCadMock/AutoCadMock.csproj \
     -c Release \
-    --no-build \
     -r win-x64 \
     --self-contained true \
     -o /artifacts/AutoCadMock-desktop-win-x64
