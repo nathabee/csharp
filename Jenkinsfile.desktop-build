@@ -1,10 +1,14 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
     environment {
-        IMAGE_NAME = "dialmock-desktop-build"
-        CONTAINER_NAME = "dialmock-desktop-extract"
         ARTIFACT_DIR = "artifacts"
+        EXPORT_DIR = "artifacts-export"
         OUTPUT_NAME = "AutoCadMock-desktop-linux-x64"
     }
 
@@ -15,41 +19,32 @@ pipeline {
                 sh '''
                     set -e
 
-                    rm -rf ${ARTIFACT_DIR}
-                    mkdir -p ${ARTIFACT_DIR}
+                    rm -rf "${ARTIFACT_DIR}" "${EXPORT_DIR}"
+                    mkdir -p "${ARTIFACT_DIR}" "${EXPORT_DIR}"
                 '''
             }
         }
 
-        stage('Build publish-autocadmock image') {
+        stage('Publish desktop artifacts to workspace') {
             steps {
                 sh '''
                     set -e
 
-                    docker build \
+                    docker buildx build \
                         --target publish-autocadmock \
-                        -t ${IMAGE_NAME} \
+                        --output type=local,dest="${EXPORT_DIR}" \
                         .
                 '''
             }
         }
 
-        stage('Extract desktop artifacts') {
+        stage('Normalize desktop artifact layout') {
             steps {
                 sh '''
                     set -e
 
-                    docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
-
-                    docker create \
-                        --name ${CONTAINER_NAME} \
-                        ${IMAGE_NAME}
-
-                    docker cp \
-                        ${CONTAINER_NAME}:/artifacts/AutoCadMock-desktop \
-                        ${ARTIFACT_DIR}/${OUTPUT_NAME}
-
-                    docker rm ${CONTAINER_NAME}
+                    mv "${EXPORT_DIR}/artifacts/AutoCadMock-desktop" "${ARTIFACT_DIR}/${OUTPUT_NAME}"
+                    rm -rf "${EXPORT_DIR}"
                 '''
             }
         }
@@ -59,20 +54,15 @@ pipeline {
                 sh '''
                     set -e
 
-                    cd ${ARTIFACT_DIR}
-
-                    tar -czf \
-                        ${OUTPUT_NAME}.tar.gz \
-                        ${OUTPUT_NAME}
-
-                    cd ..
+                    cd "${ARTIFACT_DIR}"
+                    tar -czf "${OUTPUT_NAME}.tar.gz" "${OUTPUT_NAME}"
                 '''
             }
         }
 
         stage('Archive artifacts') {
             steps {
-                archiveArtifacts artifacts: 'artifacts/*.tar.gz'
+                archiveArtifacts artifacts: 'artifacts/*.tar.gz', fingerprint: true
             }
         }
 

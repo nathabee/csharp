@@ -15,6 +15,8 @@ Phase 15 : optional PLM-style workflow simulation
 ---
 ## 1.2.x change AutocadMock into an interactive Desktop App
 ---
+
+1.2.2 Phase 12 : CI/CD - Windows desktop packaging
 1.2.1 Phase 11 : CI/CD- GitHub Release automation
 1.2.1 Phase 10 : CI/CD and Docker/Jenkins adaptation
 1.2.0 Phase 9 : conversion AutocadMock from console host to interactive desktop app using Avalonia
