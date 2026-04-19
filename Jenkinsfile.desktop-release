@@ -45,11 +45,18 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = 'dialmock-desktop-release'
-        CONTAINER_NAME = 'dialmock-desktop-release-extract'
+        LINUX_IMAGE = 'dialmock-desktop-release-linux'
+        LINUX_CONTAINER = 'dialmock-desktop-release-linux-extract'
+        WIN_IMAGE = 'dialmock-desktop-release-win'
+        WIN_CONTAINER = 'dialmock-desktop-release-win-extract'
+
         ARTIFACT_DIR = 'artifacts'
-        OUTPUT_NAME = 'AutoCadMock-desktop-linux-x64'
-        ASSET_NAME = 'AutoCadMock-desktop-linux-x64.tar.gz'
+
+        LINUX_OUTPUT_DIR = 'AutoCadMock-desktop-linux-x64'
+        LINUX_ASSET = 'AutoCadMock-desktop-linux-x64.tar.gz'
+
+        WIN_OUTPUT_DIR = 'AutoCadMock-desktop-win-x64'
+        WIN_ASSET = 'AutoCadMock-desktop-win-x64.zip'
     }
 
     stages {
@@ -88,90 +95,125 @@ pipeline {
             }
         }
 
-        stage('Build publish-autocadmock image') {
+        stage('Build Linux publish image') {
             steps {
                 sh '''
                     set -e
                     docker build \
                       --target publish-autocadmock \
-                      -t "${IMAGE_NAME}" \
+                      -t "${LINUX_IMAGE}" \
                       .
                 '''
             }
         }
 
-        stage('Extract desktop artifacts') {
+        stage('Extract Linux desktop artifacts') {
             steps {
                 sh '''
                     set -e
 
-                    docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
+                    docker rm -f "${LINUX_CONTAINER}" 2>/dev/null || true
 
                     docker create \
-                      --name "${CONTAINER_NAME}" \
-                      "${IMAGE_NAME}" >/dev/null
+                      --name "${LINUX_CONTAINER}" \
+                      "${LINUX_IMAGE}" >/dev/null
 
                     docker cp \
-                      "${CONTAINER_NAME}:/artifacts/AutoCadMock-desktop" \
-                      "${ARTIFACT_DIR}/${OUTPUT_NAME}"
+                      "${LINUX_CONTAINER}:/artifacts/AutoCadMock-desktop" \
+                      "${ARTIFACT_DIR}/${LINUX_OUTPUT_DIR}"
 
-                    docker rm "${CONTAINER_NAME}" >/dev/null
+                    docker rm "${LINUX_CONTAINER}" >/dev/null
                 '''
             }
         }
 
-        stage('Package tar.gz') {
+        stage('Package Linux tar.gz') {
+            steps {
+                sh '''
+                    set -e
+                    cd "${ARTIFACT_DIR}"
+                    tar -czf "${LINUX_ASSET}" "${LINUX_OUTPUT_DIR}"
+                '''
+            }
+        }
+
+        stage('Build Windows publish image') {
+            steps {
+                sh '''
+                    set -e
+                    docker build \
+                      --target publish-autocadmock-win \
+                      -t "${WIN_IMAGE}" \
+                      .
+                '''
+            }
+        }
+
+        stage('Extract Windows desktop artifacts') {
             steps {
                 sh '''
                     set -e
 
+                    docker rm -f "${WIN_CONTAINER}" 2>/dev/null || true
+
+                    docker create \
+                      --name "${WIN_CONTAINER}" \
+                      "${WIN_IMAGE}" >/dev/null
+
+                    docker cp \
+                      "${WIN_CONTAINER}:/artifacts/AutoCadMock-desktop-win-x64" \
+                      "${ARTIFACT_DIR}/${WIN_OUTPUT_DIR}"
+
+                    docker rm "${WIN_CONTAINER}" >/dev/null
+                '''
+            }
+        }
+
+        stage('Package Windows zip') {
+            steps {
+                sh '''
+                    set -e
                     cd "${ARTIFACT_DIR}"
-                    tar -czf "${ASSET_NAME}" "${OUTPUT_NAME}"
+                    zip -r "${WIN_ASSET}" "${WIN_OUTPUT_DIR}"
                 '''
             }
         }
 
         stage('Archive artifacts') {
             steps {
-                archiveArtifacts artifacts: 'artifacts/*.tar.gz', fingerprint: true
+                archiveArtifacts artifacts: 'artifacts/*.tar.gz,artifacts/*.zip', fingerprint: true
             }
         }
 
         stage('Create or update GitHub release') {
             steps {
                 withCredentials([string(credentialsId: params.GITHUB_TOKEN_CREDENTIALS_ID, variable: 'GITHUB_TOKEN')]) {
-            sh '''
-                set -eu
+                    sh '''
+                        set -eu
 
-                TAG="${RELEASE_TAG}"
-                RELEASE_NAME_VALUE="${RELEASE_NAME}"
-                if [ -z "${RELEASE_NAME_VALUE}" ]; then
-                  RELEASE_NAME_VALUE="${TAG}"
-                fi
+                        TAG="${RELEASE_TAG}"
+                        REPO="${GITHUB_REPOSITORY}"
+                        API_ROOT="https://api.github.com/repos/${REPO}"
 
-                REPO="${GITHUB_REPOSITORY}"
-                API_ROOT="https://api.github.com/repos/${REPO}"
-                ASSET_PATH="${ARTIFACT_DIR}/${ASSET_NAME}"
+                        auth_header="Authorization: Bearer ${GITHUB_TOKEN}"
+                        accept_header="Accept: application/vnd.github+json"
+                        api_version_header="X-GitHub-Api-Version: 2022-11-28"
 
-                auth_header="Authorization: Bearer ${GITHUB_TOKEN}"
-                accept_header="Accept: application/vnd.github+json"
-                api_version_header="X-GitHub-Api-Version: 2022-11-28"
+                        echo "[release] looking for existing release: ${TAG}"
 
-                echo "[release] looking for existing release: ${TAG}"
+                        status_code="$(curl -sS -o release_lookup.json -w "%{http_code}" \
+                          -H "${auth_header}" \
+                          -H "${accept_header}" \
+                          -H "${api_version_header}" \
+                          "${API_ROOT}/releases/tags/${TAG}")"
 
-                status_code="$(curl -sS -o release_lookup.json -w "%{http_code}" \
-                  -H "${auth_header}" \
-                  -H "${accept_header}" \
-                  -H "${api_version_header}" \
-                  "${API_ROOT}/releases/tags/${TAG}")"
+                        if [ "${status_code}" = "200" ]; then
+                          echo "[release] existing release found"
+                          cp release_lookup.json release_response.json
+                        elif [ "${status_code}" = "404" ]; then
+                          echo "[release] release not found, creating it"
 
-                if [ "${status_code}" = "200" ]; then
-                  echo "[release] existing release found"
-                  cp release_lookup.json release_response.json
-                elif [ "${status_code}" = "404" ]; then
-                  echo "[release] release not found, creating it"
-
-                  python3 - <<'PY' > release_create.json
+                          python3 - <<'PY' > release_create.json
 import json
 import os
 
@@ -186,33 +228,33 @@ payload = {
 print(json.dumps(payload))
 PY
 
-                  create_status="$(curl -sS -o release_response.json -w "%{http_code}" \
-                    -X POST \
-                    -H "${auth_header}" \
-                    -H "${accept_header}" \
-                    -H "${api_version_header}" \
-                    "${API_ROOT}/releases" \
-                    --data @release_create.json)"
+                          create_status="$(curl -sS -o release_response.json -w "%{http_code}" \
+                            -X POST \
+                            -H "${auth_header}" \
+                            -H "${accept_header}" \
+                            -H "${api_version_header}" \
+                            "${API_ROOT}/releases" \
+                            --data @release_create.json)"
 
-                  if [ "${create_status}" != "201" ]; then
-                    echo "[release] failed to create release, HTTP ${create_status}"
-                    cat release_response.json
-                    exit 1
-                  fi
-                else
-                  echo "[release] unexpected lookup status: ${status_code}"
-                  cat release_lookup.json
-                  exit 1
-                fi
+                          if [ "${create_status}" != "201" ]; then
+                            echo "[release] failed to create release, HTTP ${create_status}"
+                            cat release_response.json
+                            exit 1
+                          fi
+                        else
+                          echo "[release] unexpected lookup status: ${status_code}"
+                          cat release_lookup.json
+                          exit 1
+                        fi
 
-                RELEASE_ID="$(python3 - <<'PY'
+                        RELEASE_ID="$(python3 - <<'PY'
 import json
 with open("release_response.json", "r", encoding="utf-8") as f:
     data = json.load(f)
 print(data["id"])
 PY
 )"
-                UPLOAD_URL_BASE="$(python3 - <<'PY'
+                        UPLOAD_URL_BASE="$(python3 - <<'PY'
 import json
 with open("release_response.json", "r", encoding="utf-8") as f:
     data = json.load(f)
@@ -220,21 +262,25 @@ print(data["upload_url"].split("{")[0])
 PY
 )"
 
-                echo "[release] release id: ${RELEASE_ID}"
+                        echo "[release] release id: ${RELEASE_ID}"
 
-                echo "[release] checking whether asset already exists"
-                curl -sS \
-                  -H "${auth_header}" \
-                  -H "${accept_header}" \
-                  -H "${api_version_header}" \
-                  "${API_ROOT}/releases/${RELEASE_ID}/assets" \
-                  -o release_assets.json
+                        upload_asset() {
+                          asset_name="$1"
+                          asset_path="$2"
+                          content_type="$3"
 
-                EXISTING_ASSET_ID="$(python3 - <<'PY'
+                          curl -sS \
+                            -H "${auth_header}" \
+                            -H "${accept_header}" \
+                            -H "${api_version_header}" \
+                            "${API_ROOT}/releases/${RELEASE_ID}/assets" \
+                            -o release_assets.json
+
+                          existing_asset_id="$(python3 - "$asset_name" <<'PY'
 import json
-import os
+import sys
 
-asset_name = os.environ["ASSET_NAME"]
+asset_name = sys.argv[1]
 with open("release_assets.json", "r", encoding="utf-8") as f:
     assets = json.load(f)
 
@@ -243,46 +289,49 @@ print(match)
 PY
 )"
 
-                if [ -n "${EXISTING_ASSET_ID}" ]; then
-                  echo "[release] deleting existing asset id ${EXISTING_ASSET_ID}"
-                  delete_status="$(curl -sS -o /dev/null -w "%{http_code}" \
-                    -X DELETE \
-                    -H "${auth_header}" \
-                    -H "${accept_header}" \
-                    -H "${api_version_header}" \
-                    "${API_ROOT}/releases/assets/${EXISTING_ASSET_ID}")"
+                          if [ -n "${existing_asset_id}" ]; then
+                            echo "[release] deleting existing asset ${asset_name} (id ${existing_asset_id})"
+                            delete_status="$(curl -sS -o /dev/null -w "%{http_code}" \
+                              -X DELETE \
+                              -H "${auth_header}" \
+                              -H "${accept_header}" \
+                              -H "${api_version_header}" \
+                              "${API_ROOT}/releases/assets/${existing_asset_id}")"
 
-                  if [ "${delete_status}" != "204" ]; then
-                    echo "[release] failed to delete existing asset, HTTP ${delete_status}"
-                    exit 1
-                  fi
-                fi
+                            if [ "${delete_status}" != "204" ]; then
+                              echo "[release] failed to delete existing asset ${asset_name}, HTTP ${delete_status}"
+                              exit 1
+                            fi
+                          fi
 
-                echo "[release] uploading asset ${ASSET_NAME}"
-                upload_status="$(curl -sS -o upload_response.json -w "%{http_code}" \
-                  -X POST \
-                  -H "${auth_header}" \
-                  -H "Content-Type: application/gzip" \
-                  "${UPLOAD_URL_BASE}?name=${ASSET_NAME}" \
-                  --data-binary @"${ASSET_PATH}")"
+                          echo "[release] uploading ${asset_name}"
+                          upload_status="$(curl -sS -o upload_response.json -w "%{http_code}" \
+                            -X POST \
+                            -H "${auth_header}" \
+                            -H "Content-Type: ${content_type}" \
+                            "${UPLOAD_URL_BASE}?name=${asset_name}" \
+                            --data-binary @"${asset_path}")"
 
-                if [ "${upload_status}" != "201" ]; then
-                  echo "[release] upload failed, HTTP ${upload_status}"
-                  cat upload_response.json
-                  exit 1
-                fi
+                          if [ "${upload_status}" != "201" ]; then
+                            echo "[release] upload failed for ${asset_name}, HTTP ${upload_status}"
+                            cat upload_response.json
+                            exit 1
+                          fi
 
-                ASSET_URL="$(python3 - <<'PY'
+                          python3 - <<'PY'
 import json
 with open("upload_response.json", "r", encoding="utf-8") as f:
     data = json.load(f)
 print(data["browser_download_url"])
 PY
-)"
+                        }
 
-                echo "[release] upload successful"
-                echo "[release] asset url: ${ASSET_URL}"
-            '''
+                        linux_url="$(upload_asset "${LINUX_ASSET}" "${ARTIFACT_DIR}/${LINUX_ASSET}" "application/gzip")"
+                        echo "[release] linux asset url: ${linux_url}"
+
+                        win_url="$(upload_asset "${WIN_ASSET}" "${ARTIFACT_DIR}/${WIN_ASSET}" "application/zip")"
+                        echo "[release] windows asset url: ${win_url}"
+                    '''
                 }
             }
         }

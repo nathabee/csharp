@@ -71,6 +71,21 @@ RUN dotnet publish AutoCadMock/AutoCadMock.csproj \
     -o /artifacts/AutoCadMock-desktop
 
 # ==========================================
+# Publish AutoCadMock (desktop, Windows)
+# Self-contained for easier distribution
+# ==========================================
+
+FROM build AS publish-autocadmock-win
+
+WORKDIR /src
+
+RUN dotnet publish AutoCadMock/AutoCadMock.csproj \
+    -c Release \
+    -r win-x64 \
+    --self-contained true \
+    -o /artifacts/AutoCadMock-desktop-win-x64
+    
+# ==========================================
 # Runtime image (DialMock only)
 # ==========================================
 

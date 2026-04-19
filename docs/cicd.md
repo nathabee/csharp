@@ -48,6 +48,7 @@ Jenkins host must have:
 * Git
 * Docker
 * Jenkins user in the `docker` group
+* zip
 
 
 Example:
@@ -55,6 +56,11 @@ Example:
 ```bash
 sudo usermod -aG docker jenkins
 sudo systemctl restart jenkins
+
+sudo apt-get update
+sudo apt-get install -y zip
+
+
 ```
 
 ---
