@@ -37,7 +37,7 @@ flowchart TD
 
     E --> M[Package Linux desktop archive]
     M --> N[Upload to GitHub Release]
-````
+```
 
 ---
 
@@ -48,6 +48,7 @@ Jenkins host must have:
 * Git
 * Docker
 * Jenkins user in the `docker` group
+
 
 Example:
 
@@ -120,15 +121,16 @@ This is needed only for:
 
 ### Step 1 — Create token in GitHub
 
-Create a token for repository:
+Create a classic token for repository:
 
-```text
-nathabee/csharp
-```
+ https://github.com/settings/tokens/new
 
-Minimum permission:
+Token type: Classic
+Scope: repo
+Then store it in Jenkins as:
+Kind: Secret text
+ID: github-token
 
-* **Contents** → read and write
 
 ### Step 2 — Store token in Jenkins
 
