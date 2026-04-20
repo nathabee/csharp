@@ -12,14 +12,14 @@ The repository demonstrates how the same dial logic can be reused through differ
 
 ## What this project shows
 
-This workspace is built to demonstrate:
+This workspace demonstrates:
 
 - clean separation between domain logic, rendering, and CAD integration
 - reuse of the same core logic across multiple hosts
 - neutral CAD modeling before vendor-specific integration
 - DXF export as a reusable output path
-- Docker-based CI/CD with host-specific packaging
-- Jenkins-based build, deploy, packaging, and release automation
+- Docker-based build and packaging workflows
+- Jenkins-based CI, web deploy, and desktop release automation
 
 ---
 
@@ -38,8 +38,8 @@ Blazor web host for:
 
 Runtime model:
 
-- packaged and deployed in Docker
-- exposed as a web application
+- packaged and deployed as a web application
+- delivered through the web deployment pipeline
 
 ### AutoCadMock
 
@@ -53,8 +53,8 @@ Avalonia desktop host for:
 
 Runtime model:
 
-- built in Docker during CI/release packaging
-- published as a downloadable desktop artifact
+- packaged as a desktop release artifact
+- published for download through GitHub Releases
 - run locally outside Docker
 
 ---
@@ -175,9 +175,9 @@ Implemented today:
 * LibreCAD validation
 * automated tests
 * Docker-based CI
-* Jenkins web deploy pipeline
-* Jenkins desktop packaging pipeline
-* Jenkins desktop GitHub Release pipeline
+* Jenkins web deployment
+* Jenkins desktop build-and-release pipeline
+* GitHub desktop release publishing
 
 Planned later:
 
@@ -192,53 +192,55 @@ Planned later:
 
 ## CI/CD
 
-Docker-based Jenkins pipelines build and package both hosts without requiring a local .NET SDK on the Jenkins machine.
+The repository currently uses **three Jenkins pipelines**:
 
-- **DialMock** → Docker runtime
-- **AutoCadMock** → desktop artifact / GitHub Release asset
+* **`Jenkinsfile.ci`** — build, test, and publish artifacts
+* **`Jenkinsfile.deploy`** — deploy the `DialMock` web application
+* **`Jenkinsfile.desktop-release`** — build the `AutoCadMock` desktop package and publish it as a GitHub Release asset
+
+The pipeline model is now:
+
+* **DialMock** → web deployment path
+* **AutoCadMock** → desktop release path
 
 ```mermaid
 flowchart TD
     A[GitHub push] --> B[Jenkins CI]
     A --> C[Jenkins Deploy]
-    A --> D[Jenkins Desktop Build]
-    A --> E[Jenkins Desktop Release]
+    A --> D[Jenkins Desktop Release]
 
-    B --> F[Build + test in Docker]
-    F --> G[Publish DialMock artifact]
-    F --> H[Publish AutoCadMock artifact]
+    B --> E[Build + test solution]
+    E --> F[Publish build artifacts]
 
-    C --> I[Build DialMock runtime image]
-    I --> J[Deploy web container]
+    C --> G[Build DialMock web runtime]
+    G --> H[Deploy web application]
 
-    D --> K[Package Linux desktop archive]
-    K --> L[Archive in Jenkins]
-
-    E --> M[Package Linux desktop archive]
-    M --> N[Upload to GitHub Release]
-````
+    D --> I[Package AutoCadMock desktop app]
+    I --> J[Create or update GitHub Release]
+    J --> K[Upload desktop release asset]
+```
 
 ### Pipelines
 
 * `Jenkinsfile.ci` — build, test, publish, archive
-* `Jenkinsfile.deploy` — deploy `DialMock` web container
-* `Jenkinsfile.desktop-build` — package `AutoCadMock` for Jenkins download
-* `Jenkinsfile.desktop-release` — publish desktop package to GitHub Releases
+* `Jenkinsfile.deploy` — deploy `DialMock` web application
+* `Jenkinsfile.desktop-release` — build desktop package and publish it to GitHub Releases
 
 ```mermaid
 flowchart LR
     A[Shared solution] --> B[DialMock]
     A --> C[AutoCadMock]
 
-    B --> D[Docker image]
+    B --> D[Web deployment]
     D --> E[Running web app]
 
-    C --> F[tar.gz package]
-    F --> G[Jenkins artifact]
-    F --> H[GitHub Release asset]
+    C --> F[Release package]
+    F --> G[GitHub Release asset]
 ```
 
 See [CI/CD user manual](docs/cicd.md).
+
+---
 
 ## Development
 
