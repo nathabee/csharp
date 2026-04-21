@@ -1,0 +1,38 @@
+{
+  "appName": "DialMock",
+  "tagline": "C# prototype workspace for dial-generation workflows",
+  "subline": "Blazor web preview • Avalonia desktop host • future CAD integration",
+
+  "featureTitle": "Reusable .NET dial generation",
+  "featureLeft1": "• shared render logic",
+  "featureLeft2": "• Blazor SVG preview",
+  "featureRight1": "• Avalonia desktop host",
+  "featureRight2": "• CAD-ready export path",
+
+  "chip1": ".NET 10",
+  "chip2": "Web Preview",
+  "chip3": "Desktop Host",
+  "chip4": "CAD Pipeline",
+
+  "iconFile": "dialmock-icon.svg",
+  "screenshot1": "screenshot-1.png",
+  "screenshot2": "screenshot-2.png",
+
+  "screenshot1Label": "Desktop host - CAD simulation",
+  "screenshot2Label": "Blazor SVG preview",
+
+  "shot1X": 930,
+  "shot1Y": 62,
+  "shot1Width": 270,
+  "shot1Height": 300,
+  "shot1Radius": 18,
+  "shot1Fit": "xMidYMid meet",
+
+  "shot2X": 1230,
+  "shot2Y": 110,
+  "shot2Width": 240,
+  "shot2Height": 190,
+  "shot2Radius": 18,
+  "shot2Fit": "xMidYMid meet"
+
+}

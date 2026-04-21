@@ -3,12 +3,17 @@
 ---
 
 ```text
-to be done :   
-Phase 11 :  CI/CD - GitHub Release automation
-Phase 12 :  CI/CD - Windows desktop packaging
-Phase 13: print/plot framing strategy
-Phase 14 : documentation and architecture hardening
-Phase 15 : optional PLM-style workflow simulation
+to be done :    
+
+- Phase 13 : Backend Foundation (API + Persistence)
+- Phase 14 : Job Pipeline and Worker Service
+- Phase 15 : Real-Time Monitoring (SignalR + UI Job Console)
+- Phase 16 : Print/Plot Framing Strategy (your original idea — now placed correctly)
+- Phase 17 : Industrial Workflow Simulation (PLM-style logic)
+- Phase 18 : Observability and Diagnostics
+- Phase 19 : CAD Integration Hardening
+- Phase 20 : External Integration Simulation
+
 ```
 
 
